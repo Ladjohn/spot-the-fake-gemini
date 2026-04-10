@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { generateQuizRound, preloadRound } from './services/geminiService';
+import { generateQuizRound, getEmergencyFallbackRound, preloadAllDifficulties, preloadRound } from './services/geminiService';
 import { playSound, startMusic, stopMusic } from './services/audioService';
 import { NewsItem, QuizState } from './types';
 import { GAME_CONFIG } from './constants';
@@ -371,27 +371,6 @@ const ScoreBoard: React.FC<{
   );
 };
 
-const fallbackItems: NewsItem[] = [
-  {
-    id: '1',
-    headline: 'Octopus has 3 hearts',
-    title: 'Octopus has 3 hearts',
-    type: 'REAL',
-    summary: 'Octopuses really do have three hearts - two pump blood to the gills and one pumps it to the body.',
-  } as any,
-  {
-    id: '2',
-    headline: 'Scientists taught cats to bark',
-    title: 'Scientists taught cats to bark',
-    type: 'FAKE',
-    summary: 'No such study exists - cats are physically unable to produce dog-like barking sounds.',
-  } as any,
-];
-
-function getSafeRound(items: NewsItem[] | null | undefined) {
-  return items && items.length ? items : fallbackItems;
-}
-
 const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [quizItems, setQuizItems] = useState<NewsItem[]>([]);
@@ -406,6 +385,7 @@ const App: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(GAME_CONFIG.TIMER_SECONDS);
   const [userGuess, setUserGuess] = useState<'REAL' | 'FAKE' | 'TIMEOUT' | null>(null);
   const timerRef = useRef<number | null>(null);
+  const imagePreloadRef = useRef<Set<string>>(new Set());
 
   const [gameState, setGameState] = useState<QuizState>({
     currentRound: 1,
@@ -420,9 +400,22 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    preloadRound();
+    preloadAllDifficulties();
     startMusic();
   }, []);
+
+  const preloadImage = useCallback((url?: string) => {
+    if (typeof window === 'undefined' || !url || imagePreloadRef.current.has(url)) return;
+
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = url;
+    imagePreloadRef.current.add(url);
+  }, []);
+
+  const preloadUpcomingImages = useCallback((items: NewsItem[], startIndex: number, count = 4) => {
+    items.slice(startIndex, startIndex + count).forEach(item => preloadImage(item.imageUrl));
+  }, [preloadImage]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -478,6 +471,11 @@ const App: React.FC = () => {
     }
   }, [gameState.status, gameState.score]);
 
+  useEffect(() => {
+    if (!quizItems.length) return;
+    preloadUpcomingImages(quizItems, currentIndex, 4);
+  }, [quizItems, currentIndex, preloadUpcomingImages]);
+
   const stopTimer = useCallback(() => {
     if (timerRef.current !== null) {
       window.clearInterval(timerRef.current);
@@ -532,12 +530,14 @@ const App: React.FC = () => {
     buzz(20);
     playSound('CLICK');
     setLoading(true);
+    stopTimer();
+    setUserGuess(null);
     setGameState(prev => ({
       ...prev,
       score: 0,
       streak: 0,
       lives: GAME_CONFIG.MAX_LIVES,
-      status: 'PLAYING',
+      status: 'IDLE',
       difficulty,
     }));
 
@@ -546,13 +546,18 @@ const App: React.FC = () => {
         generateQuizRound(5, difficulty),
         new Promise<NewsItem[]>(res => setTimeout(() => res([]), 15000)),
       ]);
-      setQuizItems(getSafeRound(items));
+      setQuizItems(items && items.length ? items : getEmergencyFallbackRound(5, difficulty));
+      preloadRound(difficulty);
     } catch {
-      setQuizItems(fallbackItems);
+      setQuizItems(getEmergencyFallbackRound(5, difficulty));
+      preloadRound(difficulty);
     }
     setCurrentIndex(0);
 
-    setTimeout(() => setLoading(false), 300);
+    setTimeout(() => {
+      setLoading(false);
+      setGameState(prev => ({ ...prev, status: 'PLAYING' }));
+    }, 300);
   };
 
   const handleVote = useCallback(
@@ -595,10 +600,10 @@ const App: React.FC = () => {
     setLoading(true);
     try {
       const nextItems = await generateQuizRound(5, gameState.difficulty);
-      setQuizItems(getSafeRound(nextItems));
+      setQuizItems(nextItems && nextItems.length ? nextItems : getEmergencyFallbackRound(5, gameState.difficulty));
       preloadRound(gameState.difficulty);
     } catch {
-      setQuizItems(fallbackItems);
+      setQuizItems(getEmergencyFallbackRound(5, gameState.difficulty));
     }
     setCurrentIndex(0);
     setGameState(prev => ({ ...prev, status: 'PLAYING' }));

@@ -15,7 +15,7 @@ type WikipediaContext = {
   thumbnailUrl?: string;
 };
 
-let cachedRound: { difficulty: GameDifficulty; items: NewsItem[] } | null = null;
+let cachedRound: { difficulty: GameDifficulty; items: NewsItem[]; source: 'online' | 'fallback' } | null = null;
 const recentHeadlines: string[] = getSeenHeadlines();
 
 const FALLBACK_ITEMS: Array<Omit<NewsItem, 'id'>> = [
@@ -363,8 +363,10 @@ function uniqueOnly(items: NewsItem[]) {
   });
 }
 
-function getFallbackRound(count: number): NewsItem[] {
-  const shuffled = [...FALLBACK_ITEMS].sort(() => Math.random() - 0.5);
+function getFallbackRound(count: number, difficulty: GameDifficulty = 'Medium'): NewsItem[] {
+  const difficultyPool = FALLBACK_ITEMS.filter(item => item.difficulty === difficulty);
+  const sourcePool = difficultyPool.length ? difficultyPool : FALLBACK_ITEMS;
+  const shuffled = [...sourcePool].sort(() => Math.random() - 0.5);
   const unique = shuffled
     .filter(item => !isRecentHeadline(item.headline))
     .slice(0, count)
@@ -376,6 +378,10 @@ function getFallbackRound(count: number): NewsItem[] {
 
   rememberHeadlines(mapped);
   return mapped;
+}
+
+export function getEmergencyFallbackRound(count = 5, difficulty: GameDifficulty = 'Medium') {
+  return getFallbackRound(count, difficulty);
 }
 
 async function requestFreshRound(count: number, difficulty: GameDifficulty): Promise<NewsItem[]> {
@@ -395,7 +401,11 @@ async function requestFreshRound(count: number, difficulty: GameDifficulty): Pro
 
 export async function generateQuizRound(count = 5, difficulty: GameDifficulty = 'Medium'): Promise<NewsItem[]> {
   try {
-    if (cachedRound?.difficulty === difficulty && cachedRound.items.length >= count) {
+    if (
+      cachedRound?.source === 'online' &&
+      cachedRound.difficulty === difficulty &&
+      cachedRound.items.length >= count
+    ) {
       const data = cachedRound.items.slice(0, count);
       cachedRound = null;
       rememberHeadlines(data);
@@ -405,7 +415,7 @@ export async function generateQuizRound(count = 5, difficulty: GameDifficulty = 
     return await requestFreshRound(count, difficulty);
   } catch (err) {
     console.error(err);
-    return getFallbackRound(count);
+    return getFallbackRound(count, difficulty);
   }
 }
 
@@ -414,11 +424,9 @@ export async function preloadRound(difficulty: GameDifficulty = 'Medium') {
     cachedRound = {
       difficulty,
       items: await requestFreshRound(5, difficulty),
+      source: 'online',
     };
   } catch {
-    cachedRound = {
-      difficulty,
-      items: getFallbackRound(5),
-    };
+    cachedRound = null;
   }
 }

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import openrouterHandler from './api/openrouter';
 import leaderboardHandler from './api/leaderboard';
@@ -26,4 +27,9 @@ app.all('/api/leaderboard', async (req: any, res: any) => {
 const PORT = 5001;
 app.listen(PORT, 'localhost', () => {
   console.log(`API server running on http://localhost:${PORT}`);
+  if (!process.env.OPENROUTER_API_KEY) {
+    console.warn('⚠️  WARNING: OPENROUTER_API_KEY is not set. AI generation will use fallback questions.');
+  } else {
+    console.log('✓ OPENROUTER_API_KEY is configured.');
+  }
 });

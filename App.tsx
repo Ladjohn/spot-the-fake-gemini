@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { generateQuizRound, getEmergencyFallbackRound, preloadAllDifficulties, preloadRound } from './services/geminiService';
+import { generateQuizRound, getEmergencyFallbackRound, preloadRound } from './services/geminiService';
 import { playSound, startMusic, stopMusic } from './services/audioService';
 import { NewsItem, QuizState } from './types';
 import { GAME_CONFIG } from './constants';
@@ -400,7 +400,7 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    preloadAllDifficulties();
+    preloadRound('Medium');
     startMusic();
   }, []);
 
@@ -537,14 +537,14 @@ const App: React.FC = () => {
       score: 0,
       streak: 0,
       lives: GAME_CONFIG.MAX_LIVES,
-      status: 'IDLE',
+      status: 'PLAYING',
       difficulty,
     }));
 
     try {
       const items = await Promise.race([
         generateQuizRound(5, difficulty),
-        new Promise<NewsItem[]>(res => setTimeout(() => res([]), 15000)),
+        new Promise<NewsItem[]>(res => setTimeout(() => res([]), 8000)),
       ]);
       setQuizItems(items && items.length ? items : getEmergencyFallbackRound(5, difficulty));
       preloadRound(difficulty);

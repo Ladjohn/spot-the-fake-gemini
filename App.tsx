@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { generateQuizRound, getEmergencyFallbackRound, preloadRound } from './services/geminiService';
+import { generateQuizRound, getEmergencyFallbackRound, preloadRound, resolveWikiContext } from './services/geminiService';
 import { playSound, startMusic, stopMusic } from './services/audioService';
 import { NewsItem, QuizState } from './types';
 import { GAME_CONFIG } from './constants';
@@ -542,10 +542,9 @@ const App: React.FC = () => {
     }));
 
     try {
-      const items = await Promise.race([
-        generateQuizRound(5, difficulty),
-        new Promise<NewsItem[]>(res => setTimeout(() => res([]), 8000)),
-      ]);
+      // Remove the 8s timeout race that was causing fallback questions to load first.
+      // With lazy Wikipedia lookups, generateQuizRound is now much faster.
+      const items = await generateQuizRound(5, difficulty);
       setQuizItems(items && items.length ? items : getEmergencyFallbackRound(5, difficulty));
       preloadRound(difficulty);
     } catch {
@@ -561,12 +560,20 @@ const App: React.FC = () => {
   };
 
   const handleVote = useCallback(
-    (vote: 'REAL' | 'FAKE') => {
+    async (vote: 'REAL' | 'FAKE') => {
       if (gameState.status !== 'PLAYING') return;
       navigator.vibrate?.(15);
 
-      const currentItem = quizItems[currentIndex];
+      let currentItem = quizItems[currentIndex];
       if (!currentItem) return;
+
+      // Resolve Wikipedia context before showing analysis
+      currentItem = await resolveWikiContext(currentItem);
+      setQuizItems(prev => {
+        const next = [...prev];
+        next[currentIndex] = currentItem;
+        return next;
+      });
 
       const isCorrect = vote === currentItem.type;
       const newLives = isCorrect ? gameState.lives : gameState.lives - 1;

@@ -317,22 +317,26 @@ async function mapTriviaToNewsItem(item: any, index: number): Promise<NewsItem> 
   const category = getGameCategory(item.category);
   const difficulty = getGameDifficulty(item.difficulty);
   const imagePrompt = `${statement} trivia quiz ${category}`;
-  const wikiContext = await getWikipediaContext(statement);
-  const summary = buildTruthSummary(statement, isReal, wikiContext);
+  
+  // Start Wikipedia fetch but don't await it here to speed up round loading
+  const wikiPromise = getWikipediaContext(statement);
+  const summary = buildTruthSummary(statement, isReal, null);
 
   return {
     id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
     title: statement,
     headline: statement,
     type: isReal ? 'REAL' : 'FAKE',
-    imageUrl: getSafeImageUrl(wikiContext, imagePrompt, category),
+    imageUrl: getSafeImageUrl(null, imagePrompt, category),
     summary,
     explanation: summary,
     category,
     difficulty,
-    source: wikiContext?.pageUrl || 'Open Trivia Database',
+    source: 'Open Trivia Database',
     imagePrompt,
-  };
+    // Attach the promise so we can resolve it later if needed
+    wikiPromise,
+  } as any;
 }
 
 function mapFallbackToNewsItem(item: Omit<NewsItem, 'id'>, index: number): NewsItem {
@@ -397,6 +401,29 @@ async function requestFreshRound(count: number, difficulty: GameDifficulty): Pro
   const selected = uniqueItems.slice(0, count);
   rememberHeadlines(selected);
   return selected;
+}
+
+export async function resolveWikiContext(item: NewsItem): Promise<NewsItem> {
+  const anyItem = item as any;
+  if (!anyItem.wikiPromise) return item;
+
+  try {
+    const wikiContext = await anyItem.wikiPromise;
+    if (wikiContext) {
+      const isReal = item.type === 'REAL';
+      const summary = buildTruthSummary(item.headline, isReal, wikiContext);
+      return {
+        ...item,
+        imageUrl: getSafeImageUrl(wikiContext, item.imagePrompt, item.category),
+        summary,
+        explanation: summary,
+        source: wikiContext.pageUrl || item.source,
+      };
+    }
+  } catch (err) {
+    console.error('Failed to resolve wiki context:', err);
+  }
+  return item;
 }
 
 export async function generateQuizRound(count = 5, difficulty: GameDifficulty = 'Medium'): Promise<NewsItem[]> {

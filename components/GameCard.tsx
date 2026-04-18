@@ -72,14 +72,14 @@ const GameCard: React.FC<GameCardProps> = ({ item, onVote, disabled, difficulty,
   const imagePlaceholderBg = isDarkMode ? 'linear-gradient(90deg, #3a3a3a 25%, #4a4a4a 50%, #3a3a3a 75%)' : 'linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%)';
 
   return (
-    <div className="select-none" style={{ width: '100%', maxWidth: 560, margin: '0 auto' }}>
+    <div className="select-none" style={{ width: '100%', maxWidth: 560, margin: '0 auto', minHeight: 0 }}>
       <div
         style={{
           position: 'relative',
         }}
       >
         <div className="neo-card" style={{ background: cardBg, borderRadius: 16, overflow: 'hidden' }}>
-          <div style={{ position: 'relative', minHeight: 220, height: 'clamp(220px, 42vw, 320px)', background: isDarkMode ? '#444' : '#ddd', overflow: 'hidden', borderBottom: '3px solid #000' }}>
+          <div style={{ position: 'relative', minHeight: 180, height: 'clamp(180px, 31vh, 280px)', background: isDarkMode ? '#444' : '#ddd', overflow: 'hidden', borderBottom: '3px solid #000' }}>
             {!loaded && (
               <div
                 style={{
@@ -156,15 +156,15 @@ const GameCard: React.FC<GameCardProps> = ({ item, onVote, disabled, difficulty,
             </div>
           </div>
 
-          <div style={{ padding: 'clamp(16px, 4vw, 24px)', background: cardBg }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 22 }}>
+          <div style={{ padding: 'clamp(14px, 3.2vw, 22px)', background: cardBg }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
               <h2
                 style={{
                   flex: 1,
                   margin: 0,
                   fontWeight: 900,
-                  fontSize: 'clamp(20px, 4vw, 28px)',
-                  lineHeight: 1.2,
+                  fontSize: 'clamp(18px, 3.8vw, 28px)',
+                  lineHeight: 1.15,
                   color: isDarkMode ? '#fff' : '#000',
                   fontFamily: 'Space Grotesk, sans-serif',
                 }}
@@ -173,14 +173,14 @@ const GameCard: React.FC<GameCardProps> = ({ item, onVote, disabled, difficulty,
               </h2>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginTop: 4 }}>
               <button
                 onClick={() => handleInteraction('FAKE')}
                 disabled={disabled}
                 className="neo-border neo-shadow neo-button"
                 style={{
-                  minHeight: 58,
-                  padding: '16px 12px',
+                  minHeight: 54,
+                  padding: '14px 12px',
                   background: '#E53E3E',
                   color: '#fff',
                   fontWeight: 900,
@@ -199,8 +199,8 @@ const GameCard: React.FC<GameCardProps> = ({ item, onVote, disabled, difficulty,
                 disabled={disabled}
                 className="neo-border neo-shadow neo-button"
                 style={{
-                  minHeight: 58,
-                  padding: '16px 12px',
+                  minHeight: 54,
+                  padding: '14px 12px',
                   background: '#2DBD6E',
                   color: '#fff',
                   fontWeight: 900,

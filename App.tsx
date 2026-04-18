@@ -13,7 +13,7 @@ const LOADING_LINES = [
   'Polishing fake facts until they sparkle...',
   'Asking a raccoon if this is real...',
   'Loading questions with maximum drama...',
-  'Interrogating Wikipedia in a dark room...',
+  'Interrogating the chaos engine for new traps...',
   'Teaching the truth to wear a disguise...',
   'Shuffling lies into the deck...',
   'Calling our unpaid fact goblins...',
@@ -45,7 +45,7 @@ const LoadingScreen = () => {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -79,7 +79,10 @@ const SpeakerIcon: React.FC<{ muted?: boolean }> = ({ muted = false }) => (
         <path d="M18.5 6a9 9 0 010 12" />
       </>
     ) : (
-      <line x1="4" y1="4" x2="20" y2="20" />
+      <>
+        <path d="M16.5 9.5l4 4" />
+        <path d="M20.5 9.5l-4 4" />
+      </>
     )}
   </svg>
 );
@@ -153,12 +156,13 @@ const StartScreen: React.FC<{
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         background: pageBg,
         padding: '20px',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
       }}
     >
       <div
@@ -280,12 +284,13 @@ const ScoreBoard: React.FC<{
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: '#EF4338',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 22,
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 22px)',
         color: '#000',
       }}
     >
@@ -386,6 +391,9 @@ const App: React.FC = () => {
   const [userGuess, setUserGuess] = useState<'REAL' | 'FAKE' | 'TIMEOUT' | null>(null);
   const timerRef = useRef<number | null>(null);
   const imagePreloadRef = useRef<Set<string>>(new Set());
+  const [viewportHeight, setViewportHeight] = useState(() =>
+    typeof window === 'undefined' ? 0 : window.innerHeight
+  );
 
   const [gameState, setGameState] = useState<QuizState>({
     currentRound: 1,
@@ -402,6 +410,26 @@ const App: React.FC = () => {
   useEffect(() => {
     preloadAllDifficulties();
     startMusic();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateViewportHeight = () => {
+      setViewportHeight(window.innerHeight);
+      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    };
+
+    updateViewportHeight();
+    window.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('orientationchange', updateViewportHeight);
+    window.visualViewport?.addEventListener('resize', updateViewportHeight);
+
+    return () => {
+      window.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('orientationchange', updateViewportHeight);
+      window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+    };
   }, []);
 
   const preloadImage = useCallback((url?: string) => {
@@ -662,9 +690,22 @@ const App: React.FC = () => {
   const headerBg = isDarkMode ? '#111' : '#fff';
   const borderColor = isDarkMode ? '#fff' : '#000';
   const mutedTextColor = isDarkMode ? '#aaa' : '#666';
+  const appHeight = viewportHeight ? `${viewportHeight}px` : '100dvh';
 
   return (
-    <div style={{ minHeight: '100vh', background: bgColor, display: 'flex', flexDirection: 'column', color: textColor }}>
+    <div
+      style={{
+        height: appHeight,
+        minHeight: appHeight,
+        maxHeight: appHeight,
+        background: bgColor,
+        display: 'flex',
+        flexDirection: 'column',
+        color: textColor,
+        overflow: 'hidden',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       {gameState.status === 'ANALYSIS' && currentItem && userGuess && (
         <AnalysisModal item={currentItem} userGuess={userGuess} onNext={nextQuestion} />
       )}
@@ -672,7 +713,7 @@ const App: React.FC = () => {
       <header
         style={{
           background: headerBg,
-          padding: '12px 16px',
+          padding: '10px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -734,7 +775,7 @@ const App: React.FC = () => {
 
       <div
         style={{
-          padding: '12px 16px',
+          padding: '10px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -776,7 +817,22 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ flex: 1, width: '100%', maxWidth: 680, boxSizing: 'border-box', margin: '0 auto', padding: '16px 16px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+      <div
+        style={{
+          flex: 1,
+          width: '100%',
+          maxWidth: 680,
+          boxSizing: 'border-box',
+          margin: '0 auto',
+          padding: '10px 16px 12px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 0,
+          overflow: 'hidden',
+        }}
+      >
         {currentItem ? (
           <GameCard
             item={currentItem}
@@ -792,7 +848,7 @@ const App: React.FC = () => {
 
       <div
         style={{
-          padding: '16px',
+          padding: '12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px)',
           background: headerBg,
           borderTop: `3px solid ${borderColor}`,
           display: 'flex',

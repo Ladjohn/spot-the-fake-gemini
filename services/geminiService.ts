@@ -2,177 +2,265 @@ import { NewsItem } from '../types';
 import { getSeenHeadlines, setSeenHeadlines } from '../utils/storage';
 
 const TRIVIA_ENDPOINT = 'https://opentdb.com/api.php';
+const TRIVIA_TOKEN_ENDPOINT = 'https://opentdb.com/api_token.php';
 const WIKIPEDIA_SEARCH_ENDPOINT = 'https://en.wikipedia.org/w/api.php';
-const WIKIPEDIA_SUMMARY_ENDPOINT = 'https://en.wikipedia.org/api/rest_v1/page/summary';
 const MAX_RECENT_HEADLINES = 120;
-const SUMMARY_TIMEOUT_MS = 3500;
+const SUMMARY_TIMEOUT_MS = 2800;
 const DEFAULT_ROUND_SIZE = 5;
 const QUEUE_TARGET_ITEMS = 10;
 const PRELOAD_IMAGE_COUNT = 4;
 
 type GameDifficulty = 'Easy' | 'Medium' | 'Hard';
-type WikipediaContext = {
+type SearchSnippetContext = {
   title: string;
-  extract: string;
+  snippet: string;
   pageUrl?: string;
-  thumbnailUrl?: string;
 };
 
+type TriviaTokenResponse = {
+  response_code: number;
+  response_message?: string;
+  token?: string;
+};
+
+const recentHeadlines: string[] = getSeenHeadlines();
 const onlineQueues: Record<GameDifficulty, NewsItem[]> = {
   Easy: [],
   Medium: [],
   Hard: [],
 };
-
 const queueWarmups: Partial<Record<GameDifficulty, Promise<void>>> = {};
 const preloadedImageUrls = new Set<string>();
-const recentHeadlines: string[] = getSeenHeadlines();
+const triviaTokens: Partial<Record<GameDifficulty, string>> = {};
 
 const FALLBACK_ITEMS: Array<Omit<NewsItem, 'id'>> = [
   {
     headline: 'Octopuses have three hearts',
-    summary: 'This statement is real. Octopuses have two hearts that move blood through the gills and one that moves blood through the body.',
+    summary: 'Correct answer: REAL. Quick snippet: Octopuses really do have three hearts - two move blood through the gills and one pumps it through the body.',
     type: 'REAL',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Easy',
-    explanation: 'This statement is real. Octopuses have a three-heart circulatory system.',
+    explanation: 'Correct answer: REAL. Quick snippet: Octopuses really do have three hearts - two move blood through the gills and one pumps it through the body.',
     imagePrompt: 'octopus underwater marine biology',
     title: 'Octopuses have three hearts',
   } as any,
   {
     headline: 'Humans can breathe normally in space without a suit',
-    summary: 'This statement is fake. Space is a near-vacuum, and humans need pressure and oxygen to survive there.',
+    summary: 'Correct answer: FAKE. Quick snippet: Space is a near-vacuum, so humans need pressure and oxygen support to survive there.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Easy',
-    explanation: 'This statement is fake. Astronauts need spacesuits or pressurized spacecraft.',
+    explanation: 'Correct answer: FAKE. Quick snippet: Space is a near-vacuum, so humans need pressure and oxygen support to survive there.',
     imagePrompt: 'astronaut spacesuit outer space',
     title: 'Humans can breathe normally in space without a suit',
   } as any,
   {
     headline: 'The Great Wall of China was built in a single weekend',
-    summary: 'This statement is fake. The wall system was built, rebuilt, and expanded across many centuries.',
+    summary: 'Correct answer: FAKE. Quick snippet: The Great Wall was built and rebuilt over many centuries by different dynasties.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Culture',
     difficulty: 'Easy',
-    explanation: 'This statement is fake. The Great Wall was a long-term construction effort across multiple dynasties.',
+    explanation: 'Correct answer: FAKE. Quick snippet: The Great Wall was built and rebuilt over many centuries by different dynasties.',
     imagePrompt: 'great wall of china mountain landscape',
     title: 'The Great Wall of China was built in a single weekend',
   } as any,
   {
     headline: 'Lightning can strike the same place more than once',
-    summary: 'This statement is real. Tall buildings, towers, and exposed objects can be struck repeatedly.',
+    summary: 'Correct answer: REAL. Quick snippet: Tall buildings and exposed structures can be struck repeatedly during storms.',
     type: 'REAL',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Easy',
-    explanation: 'This statement is real. The idea that lightning never strikes twice is a myth.',
+    explanation: 'Correct answer: REAL. Quick snippet: Tall buildings and exposed structures can be struck repeatedly during storms.',
     imagePrompt: 'lightning storm tall skyscraper',
     title: 'Lightning can strike the same place more than once',
   } as any,
   {
     headline: 'A computer virus can spread through a glass of water',
-    summary: 'This statement is fake. Computer viruses are malicious code, not biological germs in drinking water.',
+    summary: 'Correct answer: FAKE. Quick snippet: Computer viruses are malicious code, not biological germs that move through drinking water.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Tech',
     difficulty: 'Easy',
-    explanation: 'This statement is fake. Digital malware spreads through computer systems and networks.',
+    explanation: 'Correct answer: FAKE. Quick snippet: Computer viruses are malicious code, not biological germs that move through drinking water.',
     imagePrompt: 'computer virus warning screen glass water desk',
     title: 'A computer virus can spread through a glass of water',
   } as any,
   {
     headline: 'The human heart has four chambers',
-    summary: 'This statement is real. The heart has two atria and two ventricles.',
+    summary: 'Correct answer: REAL. Quick snippet: A human heart is divided into two atria and two ventricles.',
     type: 'REAL',
     imageUrl: '',
     category: 'Health',
     difficulty: 'Easy',
-    explanation: 'This statement is real. A human heart has four chambers.',
+    explanation: 'Correct answer: REAL. Quick snippet: A human heart is divided into two atria and two ventricles.',
     imagePrompt: 'human heart medical illustration doctor',
     title: 'The human heart has four chambers',
   } as any,
   {
     headline: 'Sound travels faster in air than in water',
-    summary: 'This statement is fake. Sound usually travels faster in water than in air.',
+    summary: 'Correct answer: FAKE. Quick snippet: Sound generally moves faster through water because the particles are packed more closely together.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Medium',
-    explanation: 'This statement is fake. Sound waves move faster through water because its particles are closer together.',
+    explanation: 'Correct answer: FAKE. Quick snippet: Sound generally moves faster through water because the particles are packed more closely together.',
     imagePrompt: 'sound wave underwater ocean science',
     title: 'Sound travels faster in air than in water',
   } as any,
   {
-    headline: 'The first programmable computers were the size of modern smartphones',
-    summary: 'This statement is fake. Early programmable computers were room-sized machines.',
-    type: 'FAKE',
-    imageUrl: '',
-    category: 'Tech',
-    difficulty: 'Easy',
-    explanation: 'This statement is fake. Early computers used large cabinets, cables, tubes, and panels.',
-    imagePrompt: 'vintage room sized computer old technology',
-    title: 'The first programmable computers were the size of modern smartphones',
-  } as any,
-  {
     headline: 'Some mushrooms can glow in the dark',
-    summary: 'This statement is real. Some fungi are bioluminescent and can produce visible light.',
+    summary: 'Correct answer: REAL. Quick snippet: Some fungi are bioluminescent and can emit visible light in dark environments.',
     type: 'REAL',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Medium',
-    explanation: 'This statement is real. Bioluminescent fungi exist in nature.',
+    explanation: 'Correct answer: REAL. Quick snippet: Some fungi are bioluminescent and can emit visible light in dark environments.',
     imagePrompt: 'glowing mushrooms dark forest bioluminescent fungi',
     title: 'Some mushrooms can glow in the dark',
   } as any,
   {
-    headline: 'Every country in the world uses the exact same currency',
-    summary: 'This statement is fake. Countries and regions use many different currencies.',
-    type: 'FAKE',
-    imageUrl: '',
-    category: 'Politics',
-    difficulty: 'Easy',
-    explanation: 'This statement is fake. Examples include the dollar, euro, yen, rupee, pound, and many more.',
-    imagePrompt: 'international money currencies banknotes coins',
-    title: 'Every country in the world uses the exact same currency',
-  } as any,
-  {
     headline: 'Vaccines train the immune system to recognize specific threats',
-    summary: 'This statement is real. Vaccines help the immune system prepare defenses against certain diseases.',
+    summary: 'Correct answer: REAL. Quick snippet: Vaccines help build immune memory so the body can respond faster to certain diseases.',
     type: 'REAL',
     imageUrl: '',
     category: 'Health',
     difficulty: 'Medium',
-    explanation: 'This statement is real. Vaccines work by preparing immune memory.',
+    explanation: 'Correct answer: REAL. Quick snippet: Vaccines help build immune memory so the body can respond faster to certain diseases.',
     imagePrompt: 'vaccine syringe immune system medical clinic',
     title: 'Vaccines train the immune system to recognize specific threats',
   } as any,
   {
+    headline: 'Bananas are naturally radioactive because they contain potassium',
+    summary: 'Correct answer: REAL. Quick snippet: Bananas contain potassium, including a tiny amount of radioactive potassium-40.',
+    type: 'REAL',
+    imageUrl: '',
+    category: 'Science',
+    difficulty: 'Medium',
+    explanation: 'Correct answer: REAL. Quick snippet: Bananas contain potassium, including a tiny amount of radioactive potassium-40.',
+    imagePrompt: 'bananas science radiation potassium',
+    title: 'Bananas are naturally radioactive because they contain potassium',
+  } as any,
+  {
+    headline: 'The speed of light changes depending on who is watching it in a vacuum',
+    summary: 'Correct answer: FAKE. Quick snippet: In a vacuum, the speed of light is treated as a constant in modern physics.',
+    type: 'FAKE',
+    imageUrl: '',
+    category: 'Science',
+    difficulty: 'Hard',
+    explanation: 'Correct answer: FAKE. Quick snippet: In a vacuum, the speed of light is treated as a constant in modern physics.',
+    imagePrompt: 'physics light beam vacuum relativity',
+    title: 'The speed of light changes depending on who is watching it in a vacuum',
+  } as any,
+  {
+    headline: 'A leap second is added because Earth rotates at a perfectly constant speed',
+    summary: 'Correct answer: FAKE. Quick snippet: Leap seconds exist because Earth’s rotation is not perfectly uniform over time.',
+    type: 'FAKE',
+    imageUrl: '',
+    category: 'Science',
+    difficulty: 'Hard',
+    explanation: 'Correct answer: FAKE. Quick snippet: Leap seconds exist because Earth’s rotation is not perfectly uniform over time.',
+    imagePrompt: 'earth rotation atomic clock astronomy',
+    title: 'A leap second is added because Earth rotates at a perfectly constant speed',
+  } as any,
+  {
+    headline: 'Sharks are older than trees in evolutionary history',
+    summary: 'Correct answer: REAL. Quick snippet: Sharks appeared hundreds of millions of years ago, before the earliest trees evolved.',
+    type: 'REAL',
+    imageUrl: '',
+    category: 'Science',
+    difficulty: 'Hard',
+    explanation: 'Correct answer: REAL. Quick snippet: Sharks appeared hundreds of millions of years ago, before the earliest trees evolved.',
+    imagePrompt: 'ancient shark evolution prehistoric ocean',
+    title: 'Sharks are older than trees in evolutionary history',
+  } as any,
+  {
+    headline: 'The first programmable computers were the size of modern smartphones',
+    summary: 'Correct answer: FAKE. Quick snippet: Early programmable computers filled rooms with hardware, cables, and vacuum tubes.',
+    type: 'FAKE',
+    imageUrl: '',
+    category: 'Tech',
+    difficulty: 'Easy',
+    explanation: 'Correct answer: FAKE. Quick snippet: Early programmable computers filled rooms with hardware, cables, and vacuum tubes.',
+    imagePrompt: 'vintage room sized computer old technology',
+    title: 'The first programmable computers were the size of modern smartphones',
+  } as any,
+  {
+    headline: 'Every country in the world uses the exact same currency',
+    summary: 'Correct answer: FAKE. Quick snippet: Different countries and regions use many different currencies around the world.',
+    type: 'FAKE',
+    imageUrl: '',
+    category: 'Politics',
+    difficulty: 'Easy',
+    explanation: 'Correct answer: FAKE. Quick snippet: Different countries and regions use many different currencies around the world.',
+    imagePrompt: 'international money currencies banknotes coins',
+    title: 'Every country in the world uses the exact same currency',
+  } as any,
+  {
     headline: 'The Moon produces its own sunlight like a small star',
-    summary: 'This statement is fake. The Moon appears bright because it reflects sunlight.',
+    summary: 'Correct answer: FAKE. Quick snippet: The Moon looks bright because it reflects sunlight rather than producing its own light.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Easy',
-    explanation: 'This statement is fake. The Moon reflects light from the Sun.',
+    explanation: 'Correct answer: FAKE. Quick snippet: The Moon looks bright because it reflects sunlight rather than producing its own light.',
     imagePrompt: 'moon night sky reflected sunlight',
     title: 'The Moon produces its own sunlight like a small star',
   } as any,
 ];
 
-async function fetchTriviaQuestions(count: number, difficulty: GameDifficulty) {
+async function requestTriviaToken(difficulty: GameDifficulty, reset = false) {
+  const url = new URL(TRIVIA_TOKEN_ENDPOINT);
+  url.searchParams.set('command', reset ? 'reset' : 'request');
+
+  if (reset && triviaTokens[difficulty]) {
+    url.searchParams.set('token', triviaTokens[difficulty]!);
+  }
+
+  const res = await fetch(url.toString());
+  if (!res.ok) {
+    throw new Error('Token request failed');
+  }
+
+  const data = await res.json() as TriviaTokenResponse;
+  if (data.token) {
+    triviaTokens[difficulty] = data.token;
+  }
+
+  return data;
+}
+
+async function getTriviaToken(difficulty: GameDifficulty) {
+  if (!triviaTokens[difficulty]) {
+    await requestTriviaToken(difficulty);
+  }
+
+  return triviaTokens[difficulty];
+}
+
+async function fetchTriviaQuestions(count: number, difficulty: GameDifficulty, retry = true) {
+  const token = await getTriviaToken(difficulty);
   const url = new URL(TRIVIA_ENDPOINT);
   url.searchParams.set('amount', String(count));
   url.searchParams.set('type', 'boolean');
   url.searchParams.set('difficulty', difficulty.toLowerCase());
 
+  if (token) {
+    url.searchParams.set('token', token);
+  }
+
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error('Trivia request failed');
 
   const data = await res.json();
+  if (data?.response_code === 4 && retry) {
+    await requestTriviaToken(difficulty, true);
+    return fetchTriviaQuestions(count, difficulty, false);
+  }
+
   if (!Array.isArray(data?.results) || data.response_code !== 0) {
     throw new Error('No trivia results');
   }
@@ -200,6 +288,10 @@ function decodeHtml(value: string) {
     .replace(/&gt;/g, '>');
 }
 
+function stripHtml(value: string) {
+  return decodeHtml(value.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+}
+
 function normalizeHeadline(headline: string) {
   return headline.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -213,44 +305,65 @@ function cleanStatementForSearch(statement: string) {
     .trim();
 }
 
-async function fetchWikipediaContext(statement: string): Promise<WikipediaContext | null> {
+function estimateDifficultyScore(statement: string, category?: string) {
+  const words = statement.split(/\s+/).filter(Boolean);
+  const avgWordLength = words.length
+    ? words.reduce((total, word) => total + word.replace(/[^a-z]/gi, '').length, 0) / words.length
+    : 0;
+  const longWordCount = words.filter(word => word.replace(/[^a-z]/gi, '').length >= 9).length;
+  const numericRefs = (statement.match(/\d+/g) || []).length;
+  const punctuationRefs = (statement.match(/[,:;()]/g) || []).length;
+  const titleCaseWords = words.filter(word => /^[A-Z][a-z]+/.test(word)).length;
+  const categoryWeight = category === 'Science' || category === 'Tech' ? 0.5 : 0;
+
+  return words.length * 0.55 + avgWordLength * 0.9 + longWordCount * 1.6 + numericRefs * 0.9 + punctuationRefs * 0.7 + titleCaseWords * 0.3 + categoryWeight;
+}
+
+function matchesDifficultyProfile(statement: string, difficulty: GameDifficulty, category?: string) {
+  const score = estimateDifficultyScore(statement, category);
+
+  if (difficulty === 'Easy') return score <= 18;
+  if (difficulty === 'Medium') return score > 13 && score <= 25;
+  return score > 19;
+}
+
+async function fetchSearchSnippetContext(statement: string): Promise<SearchSnippetContext | null> {
   const searchUrl = new URL(WIKIPEDIA_SEARCH_ENDPOINT);
   searchUrl.searchParams.set('action', 'query');
   searchUrl.searchParams.set('list', 'search');
   searchUrl.searchParams.set('format', 'json');
   searchUrl.searchParams.set('origin', '*');
+  searchUrl.searchParams.set('utf8', '1');
   searchUrl.searchParams.set('srlimit', '1');
+  searchUrl.searchParams.set('srprop', 'snippet');
   searchUrl.searchParams.set('srsearch', cleanStatementForSearch(statement));
 
   const searchRes = await fetch(searchUrl.toString());
   if (!searchRes.ok) return null;
 
   const searchData = await searchRes.json();
-  const bestTitle = searchData?.query?.search?.[0]?.title;
-  if (!bestTitle) return null;
+  const bestResult = searchData?.query?.search?.[0];
+  if (!bestResult?.title) return null;
 
-  const summaryRes = await fetch(`${WIKIPEDIA_SUMMARY_ENDPOINT}/${encodeURIComponent(bestTitle)}`);
-  if (!summaryRes.ok) return null;
+  const snippet = stripHtml(String(bestResult.snippet || ''));
+  if (!snippet) return null;
 
-  const summaryData = await summaryRes.json();
-  const extract = String(summaryData?.extract || '').trim();
-  if (!extract) return null;
+  const pageId = bestResult.pageid;
 
   return {
-    title: String(summaryData?.title || bestTitle),
-    extract,
-    pageUrl: summaryData?.content_urls?.desktop?.page,
-    thumbnailUrl: summaryData?.thumbnail?.source,
+    title: String(bestResult.title),
+    snippet,
+    pageUrl: pageId ? `https://en.wikipedia.org/?curid=${pageId}` : undefined,
   };
 }
 
-async function getWikipediaContext(statement: string) {
-  return withTimeout(fetchWikipediaContext(statement), null);
+async function getSearchSnippetContext(statement: string) {
+  return withTimeout(fetchSearchSnippetContext(statement), null);
 }
 
 function rememberHeadlines(items: NewsItem[]) {
   for (const item of items) {
-    const normalized = normalizeHeadline(item.headline || item.title || '');
+    const normalized = normalizeHeadline(item.headline || (item as any).title || '');
     if (!normalized || recentHeadlines.includes(normalized)) continue;
     recentHeadlines.unshift(normalized);
   }
@@ -268,7 +381,7 @@ function isRecentHeadline(headline: string) {
 
 function isQueuedHeadline(headline: string, difficulty: GameDifficulty) {
   const normalized = normalizeHeadline(headline);
-  return onlineQueues[difficulty].some(item => normalizeHeadline(item.headline || item.title || '') === normalized);
+  return onlineQueues[difficulty].some(item => normalizeHeadline(item.headline || (item as any).title || '') === normalized);
 }
 
 function primeImage(url?: string) {
@@ -284,8 +397,8 @@ function primeImagesForItems(items: NewsItem[], count = PRELOAD_IMAGE_COUNT) {
   items.slice(0, count).forEach(item => primeImage(item.imageUrl));
 }
 
-function getSafeImageUrl(context?: WikipediaContext | null, imagePrompt?: string, category?: string) {
-  return context?.thumbnailUrl || getCategoryImageUrl(category || 'Culture');
+function getSafeImageUrl(_context?: SearchSnippetContext | null, _imagePrompt?: string, category?: string) {
+  return getCategoryImageUrl(category || 'Culture');
 }
 
 function getCategoryImageUrl(category: string) {
@@ -317,46 +430,55 @@ function getGameDifficulty(triviaDifficulty?: string): NewsItem['difficulty'] {
   return 'Medium';
 }
 
-function buildTruthSummary(statement: string, isReal: boolean, context?: WikipediaContext | null) {
+function buildTruthSummary(statement: string, isReal: boolean, context?: SearchSnippetContext | null) {
   const truthLine = `Correct answer: ${isReal ? 'REAL' : 'FAKE'}.`;
 
-  if (!context) {
-    return `${truthLine} This statement was checked against the quiz database, but extra encyclopedia context was not available before the round started.`;
+  if (!context?.snippet) {
+    return `${truthLine} Quick snippet: We checked this statement against the trivia source, but a clean supporting snippet was not ready in time.`;
   }
 
-  const trimmedExtract = context.extract.length > 420
-    ? `${context.extract.slice(0, 420).replace(/\s+\S*$/, '')}...`
-    : context.extract;
+  const compactSnippet = context.snippet.length > 220
+    ? `${context.snippet.slice(0, 220).replace(/\s+\S*$/, '')}...`
+    : context.snippet;
 
-  return `${truthLine}\n\nQuick context from Wikipedia (${context.title}): ${trimmedExtract}`;
+  return `${truthLine} Quick snippet: ${compactSnippet}`;
 }
 
-async function mapTriviaToNewsItem(item: any, index: number): Promise<NewsItem> {
+async function mapTriviaToNewsItem(item: any, index: number, requestedDifficulty: GameDifficulty): Promise<NewsItem | null> {
   const statement = decodeHtml(String(item.question || 'No statement')).replace(/\s+/g, ' ').trim();
   const isReal = item.correct_answer === 'True';
   const category = getGameCategory(item.category);
-  const difficulty = getGameDifficulty(item.difficulty);
+  const apiDifficulty = getGameDifficulty(item.difficulty);
+
+  if (apiDifficulty !== requestedDifficulty) {
+    return null;
+  }
+
+  if (!matchesDifficultyProfile(statement, requestedDifficulty, category)) {
+    return null;
+  }
+
   const imagePrompt = `${statement} trivia quiz ${category}`;
-  const wikiContext = await getWikipediaContext(statement);
-  const summary = buildTruthSummary(statement, isReal, wikiContext);
+  const snippetContext = await getSearchSnippetContext(statement);
+  const summary = buildTruthSummary(statement, isReal, snippetContext);
 
   return {
     id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
     title: statement,
     headline: statement,
     type: isReal ? 'REAL' : 'FAKE',
-    imageUrl: getSafeImageUrl(wikiContext, imagePrompt, category),
+    imageUrl: getSafeImageUrl(snippetContext, imagePrompt, category),
     summary,
     explanation: summary,
     category,
-    difficulty,
-    source: wikiContext?.pageUrl || 'Open Trivia Database',
+    difficulty: requestedDifficulty,
+    source: snippetContext?.pageUrl || 'Open Trivia Database',
     imagePrompt,
-  };
+  } as NewsItem;
 }
 
 function mapFallbackToNewsItem(item: Omit<NewsItem, 'id'>, index: number): NewsItem {
-  const headline = item.headline || item.title || 'No statement';
+  const headline = item.headline || (item as any).title || 'No statement';
   const category = item.category || 'Culture';
 
   return {
@@ -369,10 +491,12 @@ function mapFallbackToNewsItem(item: Omit<NewsItem, 'id'>, index: number): NewsI
   } as NewsItem;
 }
 
-function uniqueOnly(items: NewsItem[], difficulty?: GameDifficulty) {
+function uniqueOnly(items: Array<NewsItem | null>, difficulty?: GameDifficulty) {
   const seenThisBatch = new Set<string>();
 
-  return items.filter(item => {
+  return items.filter((item): item is NewsItem => {
+    if (!item) return false;
+
     const normalized = normalizeHeadline(item.headline);
     if (!normalized || isRecentHeadline(item.headline) || seenThisBatch.has(normalized)) {
       return false;
@@ -410,9 +534,9 @@ export function getEmergencyFallbackRound(count = DEFAULT_ROUND_SIZE, difficulty
 }
 
 async function fetchFreshPool(count: number, difficulty: GameDifficulty): Promise<NewsItem[]> {
-  const requestedCount = Math.min(50, Math.max(count + 8, count * 3));
+  const requestedCount = Math.min(50, Math.max(count + 12, count * 4));
   const triviaItems = await fetchTriviaQuestions(requestedCount, difficulty);
-  const mappedItems = await Promise.all(triviaItems.map(mapTriviaToNewsItem));
+  const mappedItems = await Promise.all(triviaItems.map((item: any, index: number) => mapTriviaToNewsItem(item, index, difficulty)));
   return uniqueOnly(mappedItems, difficulty);
 }
 

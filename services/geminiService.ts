@@ -36,177 +36,177 @@ const triviaTokens: Partial<Record<GameDifficulty, string>> = {};
 const FALLBACK_ITEMS: Array<Omit<NewsItem, 'id'>> = [
   {
     headline: 'Octopuses have three hearts',
-    summary: 'Correct answer: REAL. Quick snippet: Octopuses really do have three hearts - two move blood through the gills and one pumps it through the body.',
+    summary: 'Correct answer: REAL. Fact check: Octopuses really do have three hearts - two move blood through the gills and one pumps it through the body.',
     type: 'REAL',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Easy',
-    explanation: 'Correct answer: REAL. Quick snippet: Octopuses really do have three hearts - two move blood through the gills and one pumps it through the body.',
+    explanation: 'Correct answer: REAL. Fact check: Octopuses really do have three hearts - two move blood through the gills and one pumps it through the body.',
     imagePrompt: 'octopus underwater marine biology',
     title: 'Octopuses have three hearts',
   } as any,
   {
     headline: 'Humans can breathe normally in space without a suit',
-    summary: 'Correct answer: FAKE. Quick snippet: Space is a near-vacuum, so humans need pressure and oxygen support to survive there.',
+    summary: 'Correct answer: FAKE. Fact check: Space is a near-vacuum, so humans need pressure and oxygen support to survive there.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Easy',
-    explanation: 'Correct answer: FAKE. Quick snippet: Space is a near-vacuum, so humans need pressure and oxygen support to survive there.',
+    explanation: 'Correct answer: FAKE. Fact check: Space is a near-vacuum, so humans need pressure and oxygen support to survive there.',
     imagePrompt: 'astronaut spacesuit outer space',
     title: 'Humans can breathe normally in space without a suit',
   } as any,
   {
     headline: 'The Great Wall of China was built in a single weekend',
-    summary: 'Correct answer: FAKE. Quick snippet: The Great Wall was built and rebuilt over many centuries by different dynasties.',
+    summary: 'Correct answer: FAKE. Fact check: The Great Wall was built and rebuilt over many centuries by different dynasties.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Culture',
     difficulty: 'Easy',
-    explanation: 'Correct answer: FAKE. Quick snippet: The Great Wall was built and rebuilt over many centuries by different dynasties.',
+    explanation: 'Correct answer: FAKE. Fact check: The Great Wall was built and rebuilt over many centuries by different dynasties.',
     imagePrompt: 'great wall of china mountain landscape',
     title: 'The Great Wall of China was built in a single weekend',
   } as any,
   {
     headline: 'Lightning can strike the same place more than once',
-    summary: 'Correct answer: REAL. Quick snippet: Tall buildings and exposed structures can be struck repeatedly during storms.',
+    summary: 'Correct answer: REAL. Fact check: Tall buildings and exposed structures can be struck repeatedly during storms.',
     type: 'REAL',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Easy',
-    explanation: 'Correct answer: REAL. Quick snippet: Tall buildings and exposed structures can be struck repeatedly during storms.',
+    explanation: 'Correct answer: REAL. Fact check: Tall buildings and exposed structures can be struck repeatedly during storms.',
     imagePrompt: 'lightning storm tall skyscraper',
     title: 'Lightning can strike the same place more than once',
   } as any,
   {
     headline: 'A computer virus can spread through a glass of water',
-    summary: 'Correct answer: FAKE. Quick snippet: Computer viruses are malicious code, not biological germs that move through drinking water.',
+    summary: 'Correct answer: FAKE. Fact check: Computer viruses are malicious code, not biological germs that move through drinking water.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Tech',
     difficulty: 'Easy',
-    explanation: 'Correct answer: FAKE. Quick snippet: Computer viruses are malicious code, not biological germs that move through drinking water.',
+    explanation: 'Correct answer: FAKE. Fact check: Computer viruses are malicious code, not biological germs that move through drinking water.',
     imagePrompt: 'computer virus warning screen glass water desk',
     title: 'A computer virus can spread through a glass of water',
   } as any,
   {
     headline: 'The human heart has four chambers',
-    summary: 'Correct answer: REAL. Quick snippet: A human heart is divided into two atria and two ventricles.',
+    summary: 'Correct answer: REAL. Fact check: A human heart is divided into two atria and two ventricles.',
     type: 'REAL',
     imageUrl: '',
     category: 'Health',
     difficulty: 'Easy',
-    explanation: 'Correct answer: REAL. Quick snippet: A human heart is divided into two atria and two ventricles.',
+    explanation: 'Correct answer: REAL. Fact check: A human heart is divided into two atria and two ventricles.',
     imagePrompt: 'human heart medical illustration doctor',
     title: 'The human heart has four chambers',
   } as any,
   {
     headline: 'Sound travels faster in air than in water',
-    summary: 'Correct answer: FAKE. Quick snippet: Sound generally moves faster through water because the particles are packed more closely together.',
+    summary: 'Correct answer: FAKE. Fact check: Sound generally moves faster through water because the particles are packed more closely together.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Medium',
-    explanation: 'Correct answer: FAKE. Quick snippet: Sound generally moves faster through water because the particles are packed more closely together.',
+    explanation: 'Correct answer: FAKE. Fact check: Sound generally moves faster through water because the particles are packed more closely together.',
     imagePrompt: 'sound wave underwater ocean science',
     title: 'Sound travels faster in air than in water',
   } as any,
   {
     headline: 'Some mushrooms can glow in the dark',
-    summary: 'Correct answer: REAL. Quick snippet: Some fungi are bioluminescent and can emit visible light in dark environments.',
+    summary: 'Correct answer: REAL. Fact check: Some fungi are bioluminescent and can emit visible light in dark environments.',
     type: 'REAL',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Medium',
-    explanation: 'Correct answer: REAL. Quick snippet: Some fungi are bioluminescent and can emit visible light in dark environments.',
+    explanation: 'Correct answer: REAL. Fact check: Some fungi are bioluminescent and can emit visible light in dark environments.',
     imagePrompt: 'glowing mushrooms dark forest bioluminescent fungi',
     title: 'Some mushrooms can glow in the dark',
   } as any,
   {
     headline: 'Vaccines train the immune system to recognize specific threats',
-    summary: 'Correct answer: REAL. Quick snippet: Vaccines help build immune memory so the body can respond faster to certain diseases.',
+    summary: 'Correct answer: REAL. Fact check: Vaccines help build immune memory so the body can respond faster to certain diseases.',
     type: 'REAL',
     imageUrl: '',
     category: 'Health',
     difficulty: 'Medium',
-    explanation: 'Correct answer: REAL. Quick snippet: Vaccines help build immune memory so the body can respond faster to certain diseases.',
+    explanation: 'Correct answer: REAL. Fact check: Vaccines help build immune memory so the body can respond faster to certain diseases.',
     imagePrompt: 'vaccine syringe immune system medical clinic',
     title: 'Vaccines train the immune system to recognize specific threats',
   } as any,
   {
     headline: 'Bananas are naturally radioactive because they contain potassium',
-    summary: 'Correct answer: REAL. Quick snippet: Bananas contain potassium, including a tiny amount of radioactive potassium-40.',
+    summary: 'Correct answer: REAL. Fact check: Bananas contain potassium, including a tiny amount of radioactive potassium-40.',
     type: 'REAL',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Medium',
-    explanation: 'Correct answer: REAL. Quick snippet: Bananas contain potassium, including a tiny amount of radioactive potassium-40.',
+    explanation: 'Correct answer: REAL. Fact check: Bananas contain potassium, including a tiny amount of radioactive potassium-40.',
     imagePrompt: 'bananas science radiation potassium',
     title: 'Bananas are naturally radioactive because they contain potassium',
   } as any,
   {
     headline: 'The speed of light changes depending on who is watching it in a vacuum',
-    summary: 'Correct answer: FAKE. Quick snippet: In a vacuum, the speed of light is treated as a constant in modern physics.',
+    summary: 'Correct answer: FAKE. Fact check: In a vacuum, the speed of light is treated as a constant in modern physics.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Hard',
-    explanation: 'Correct answer: FAKE. Quick snippet: In a vacuum, the speed of light is treated as a constant in modern physics.',
+    explanation: 'Correct answer: FAKE. Fact check: In a vacuum, the speed of light is treated as a constant in modern physics.',
     imagePrompt: 'physics light beam vacuum relativity',
     title: 'The speed of light changes depending on who is watching it in a vacuum',
   } as any,
   {
     headline: 'A leap second is added because Earth rotates at a perfectly constant speed',
-    summary: 'Correct answer: FAKE. Quick snippet: Leap seconds exist because Earth’s rotation is not perfectly uniform over time.',
+    summary: 'Correct answer: FAKE. Fact check: Leap seconds exist because Earth’s rotation is not perfectly uniform over time.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Hard',
-    explanation: 'Correct answer: FAKE. Quick snippet: Leap seconds exist because Earth’s rotation is not perfectly uniform over time.',
+    explanation: 'Correct answer: FAKE. Fact check: Leap seconds exist because Earth’s rotation is not perfectly uniform over time.',
     imagePrompt: 'earth rotation atomic clock astronomy',
     title: 'A leap second is added because Earth rotates at a perfectly constant speed',
   } as any,
   {
     headline: 'Sharks are older than trees in evolutionary history',
-    summary: 'Correct answer: REAL. Quick snippet: Sharks appeared hundreds of millions of years ago, before the earliest trees evolved.',
+    summary: 'Correct answer: REAL. Fact check: Sharks appeared hundreds of millions of years ago, before the earliest trees evolved.',
     type: 'REAL',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Hard',
-    explanation: 'Correct answer: REAL. Quick snippet: Sharks appeared hundreds of millions of years ago, before the earliest trees evolved.',
+    explanation: 'Correct answer: REAL. Fact check: Sharks appeared hundreds of millions of years ago, before the earliest trees evolved.',
     imagePrompt: 'ancient shark evolution prehistoric ocean',
     title: 'Sharks are older than trees in evolutionary history',
   } as any,
   {
     headline: 'The first programmable computers were the size of modern smartphones',
-    summary: 'Correct answer: FAKE. Quick snippet: Early programmable computers filled rooms with hardware, cables, and vacuum tubes.',
+    summary: 'Correct answer: FAKE. Fact check: Early programmable computers filled rooms with hardware, cables, and vacuum tubes.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Tech',
     difficulty: 'Easy',
-    explanation: 'Correct answer: FAKE. Quick snippet: Early programmable computers filled rooms with hardware, cables, and vacuum tubes.',
+    explanation: 'Correct answer: FAKE. Fact check: Early programmable computers filled rooms with hardware, cables, and vacuum tubes.',
     imagePrompt: 'vintage room sized computer old technology',
     title: 'The first programmable computers were the size of modern smartphones',
   } as any,
   {
     headline: 'Every country in the world uses the exact same currency',
-    summary: 'Correct answer: FAKE. Quick snippet: Different countries and regions use many different currencies around the world.',
+    summary: 'Correct answer: FAKE. Fact check: Different countries and regions use many different currencies around the world.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Politics',
     difficulty: 'Easy',
-    explanation: 'Correct answer: FAKE. Quick snippet: Different countries and regions use many different currencies around the world.',
+    explanation: 'Correct answer: FAKE. Fact check: Different countries and regions use many different currencies around the world.',
     imagePrompt: 'international money currencies banknotes coins',
     title: 'Every country in the world uses the exact same currency',
   } as any,
   {
     headline: 'The Moon produces its own sunlight like a small star',
-    summary: 'Correct answer: FAKE. Quick snippet: The Moon looks bright because it reflects sunlight rather than producing its own light.',
+    summary: 'Correct answer: FAKE. Fact check: The Moon looks bright because it reflects sunlight rather than producing its own light.',
     type: 'FAKE',
     imageUrl: '',
     category: 'Science',
     difficulty: 'Easy',
-    explanation: 'Correct answer: FAKE. Quick snippet: The Moon looks bright because it reflects sunlight rather than producing its own light.',
+    explanation: 'Correct answer: FAKE. Fact check: The Moon looks bright because it reflects sunlight rather than producing its own light.',
     imagePrompt: 'moon night sky reflected sunlight',
     title: 'The Moon produces its own sunlight like a small star',
   } as any,
@@ -303,34 +303,6 @@ function cleanStatementForSearch(statement: string) {
     .replace(/\b(true|false)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function estimateDifficultyScore(statement: string, category?: string) {
-  const words = statement.split(/\s+/).filter(Boolean);
-  const avgWordLength = words.length
-    ? words.reduce((total, word) => total + word.replace(/[^a-z]/gi, '').length, 0) / words.length
-    : 0;
-  const longWordCount = words.filter(word => word.replace(/[^a-z]/gi, '').length >= 9).length;
-  const numericRefs = (statement.match(/\d+/g) || []).length;
-  const punctuationRefs = (statement.match(/[,:;()]/g) || []).length;
-  const titleCaseWords = words.filter(word => /^[A-Z][a-z]+/.test(word)).length;
-  const categoryWeight = category === 'Science' || category === 'Tech' ? 0.5 : 0;
-
-  return words.length * 0.55 + avgWordLength * 0.9 + longWordCount * 1.6 + numericRefs * 0.9 + punctuationRefs * 0.7 + titleCaseWords * 0.3 + categoryWeight;
-}
-
-function matchesDifficultyProfile(statement: string, difficulty: GameDifficulty, category?: string, strict = true) {
-  const score = estimateDifficultyScore(statement, category);
-
-  if (difficulty === 'Easy') {
-    return strict ? score <= 18 : score <= 21;
-  }
-
-  if (difficulty === 'Medium') {
-    return strict ? score > 13 && score <= 25 : score > 10 && score <= 28;
-  }
-
-  return strict ? score > 19 : score > 16;
 }
 
 async function fetchSearchSnippetContext(statement: string): Promise<SearchSnippetContext | null> {
@@ -440,21 +412,20 @@ function buildTruthSummary(statement: string, isReal: boolean, context?: SearchS
   const truthLine = `Correct answer: ${isReal ? 'REAL' : 'FAKE'}.`;
 
   if (!context?.snippet) {
-    return `${truthLine} Quick snippet: We checked this statement against the trivia source, but a clean supporting snippet was not ready in time.`;
+    return `${truthLine} Fact check: This result matched the quiz source, but extra supporting detail was limited in this round.`;
   }
 
   const compactSnippet = context.snippet.length > 220
     ? `${context.snippet.slice(0, 220).replace(/\s+\S*$/, '')}...`
     : context.snippet;
 
-  return `${truthLine} Quick snippet: ${compactSnippet}`;
+  return `${truthLine} Fact check: ${compactSnippet}`;
 }
 
 async function mapTriviaToNewsItem(
   item: any,
   index: number,
-  requestedDifficulty: GameDifficulty,
-  strictDifficulty = true
+  requestedDifficulty: GameDifficulty
 ): Promise<NewsItem | null> {
   const statement = decodeHtml(String(item.question || 'No statement')).replace(/\s+/g, ' ').trim();
   const isReal = item.correct_answer === 'True';
@@ -462,10 +433,6 @@ async function mapTriviaToNewsItem(
   const apiDifficulty = getGameDifficulty(item.difficulty);
 
   if (apiDifficulty !== requestedDifficulty) {
-    return null;
-  }
-
-  if (!matchesDifficultyProfile(statement, requestedDifficulty, category, strictDifficulty)) {
     return null;
   }
 
@@ -544,21 +511,17 @@ export function getEmergencyFallbackRound(count = DEFAULT_ROUND_SIZE, difficulty
   return getFallbackRound(count, difficulty);
 }
 
-async function fetchFreshPool(count: number, difficulty: GameDifficulty, strictDifficulty = true): Promise<NewsItem[]> {
+async function fetchFreshPool(count: number, difficulty: GameDifficulty): Promise<NewsItem[]> {
   const requestedCount = Math.min(50, Math.max(count + 12, count * 4));
   const triviaItems = await fetchTriviaQuestions(requestedCount, difficulty);
   const mappedItems = await Promise.all(
-    triviaItems.map((item: any, index: number) => mapTriviaToNewsItem(item, index, difficulty, strictDifficulty))
+    triviaItems.map((item: any, index: number) => mapTriviaToNewsItem(item, index, difficulty))
   );
   return uniqueOnly(mappedItems, difficulty);
 }
 
 async function requestFreshRound(count: number, difficulty: GameDifficulty): Promise<NewsItem[]> {
-  let uniqueItems = await fetchFreshPool(count, difficulty, true);
-
-  if (uniqueItems.length < count) {
-    uniqueItems = await fetchFreshPool(count, difficulty, false);
-  }
+  const uniqueItems = await fetchFreshPool(count, difficulty);
 
   if (uniqueItems.length < count) {
     throw new Error('Not enough unique trivia statements');
@@ -586,12 +549,7 @@ async function fillQueue(difficulty: GameDifficulty, targetItems = QUEUE_TARGET_
 
   while (queue.length < targetItems) {
     const needed = Math.max(DEFAULT_ROUND_SIZE, targetItems - queue.length);
-
-    let freshItems = await fetchFreshPool(needed, difficulty, true);
-    if (freshItems.length < needed) {
-      freshItems = await fetchFreshPool(needed, difficulty, false);
-    }
-
+    const freshItems = await fetchFreshPool(needed, difficulty);
     const availableItems = freshItems.filter(item => !isQueuedHeadline(item.headline, difficulty));
 
     if (!availableItems.length) {

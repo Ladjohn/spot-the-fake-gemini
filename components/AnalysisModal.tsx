@@ -10,6 +10,55 @@ interface Props {
   onNext: () => void;
 }
 
+function buildFallbackExplanation(item: NewsItem) {
+  const verdict = item.type === 'REAL' ? 'REAL' : 'FAKE';
+  const category = item.category ? `${item.category.toLowerCase()} reference material` : 'trusted reference material';
+
+  if (item.type === 'REAL') {
+    return `Correct answer: ${verdict}. This statement matches the quiz source and aligns with ${category}.`;
+  }
+
+  return `Correct answer: ${verdict}. This claim does not line up with the quiz source and was treated as false against ${category}.`;
+}
+
+function formatFactCheckText(item: NewsItem, fallbackReasoning?: string) {
+  const rawText = (item.summary || item.explanation || fallbackReasoning || '').trim();
+
+  if (!rawText) {
+    return {
+      title: item.type === 'REAL' ? 'Why This Is Real' : 'Why This Is Fake',
+      verdictLine: `Correct answer: ${item.type}.`,
+      detailLine: buildFallbackExplanation(item).replace(`Correct answer: ${item.type}. `, ''),
+    };
+  }
+
+  const cleanedText = rawText
+    .replace(/^Quick snippet:\s*/i, '')
+    .replace(/snippet was not ready in time/gi, 'supporting details were limited in this round')
+    .trim();
+
+  const verdictMatch = cleanedText.match(/^Correct answer:\s*(REAL|FAKE)\.\s*/i);
+  const verdictLine = verdictMatch ? `Correct answer: ${verdictMatch[1].toUpperCase()}.` : `Correct answer: ${item.type}.`;
+  let detailLine = verdictMatch ? cleanedText.replace(verdictMatch[0], '').trim() : cleanedText;
+
+  detailLine = detailLine
+    .replace(/^Quick context from Wikipedia\s*\([^)]*\):\s*/i, '')
+    .replace(/^Quick snippet:\s*/i, '')
+    .replace(/^This statement was checked against the quiz database,\s*/i, '')
+    .replace(/^but extra encyclopedia context was not available before the round started\.?/i, 'This one was checked against the quiz source, but extra supporting context was limited in this round.')
+    .trim();
+
+  if (!detailLine) {
+    detailLine = buildFallbackExplanation(item).replace(`Correct answer: ${item.type}. `, '');
+  }
+
+  return {
+    title: item.type === 'REAL' ? 'Why This Is Real' : 'Why This Is Fake',
+    verdictLine,
+    detailLine,
+  };
+}
+
 const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext }) => {
   let v: VerificationResult = {
     authenticityScore: 50,
@@ -46,7 +95,8 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
   }
 
   const correct = userGuess === item.type;
-  const truthText = item.summary || item.explanation || v.reasoning || 'No additional information available.';
+  const factCheck = formatFactCheckText(item, v.reasoning);
+  const sourceLabel = item.source && item.source !== 'Fallback question bank' ? item.source : '';
 
   return (
     <div
@@ -102,21 +152,21 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
           </p>
         </div>
 
-        <div style={{ padding: '28px 24px' }}>
+        <div style={{ padding: '24px 24px 20px' }}>
           <div
             style={{
               border: '2px solid #111',
               borderRadius: 12,
               padding: '16px',
-              marginBottom: 24,
+              marginBottom: 18,
               background: '#fafafa',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <div
                 style={{
-                  width: 24,
-                  height: 24,
+                  width: 26,
+                  height: 26,
                   background: '#3B7FF5',
                   borderRadius: 6,
                   display: 'flex',
@@ -140,9 +190,22 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
                   textTransform: 'uppercase',
                 }}
               >
-                THE TRUTH
+                {factCheck.title}
               </h3>
             </div>
+
+            <div
+              style={{
+                fontSize: 15,
+                fontWeight: 900,
+                color: '#111',
+                marginBottom: 8,
+                lineHeight: 1.4,
+              }}
+            >
+              {factCheck.verdictLine}
+            </div>
+
             <p
               style={{
                 fontSize: 14,
@@ -150,12 +213,26 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
                 color: '#333',
                 margin: 0,
                 lineHeight: 1.6,
-                whiteSpace: 'pre-wrap',
                 wordWrap: 'break-word',
               }}
             >
-              {truthText}
+              {factCheck.detailLine}
             </p>
+
+            {sourceLabel ? (
+              <div
+                style={{
+                  marginTop: 14,
+                  paddingTop: 12,
+                  borderTop: '1px solid #d9d9d9',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: '#555',
+                }}
+              >
+                Source: {sourceLabel}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -182,7 +259,7 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
               boxShadow: '4px 4px 0px 0px #000',
             }}
           >
-            NEXT ROUND
+            Next Round
           </button>
         </div>
       </div>

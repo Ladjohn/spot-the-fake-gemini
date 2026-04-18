@@ -8,16 +8,22 @@ button {
 
 html {
   color-scheme: light dark;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
   margin: 0;
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   background: #f7d748;
+  min-height: 100%;
+  overflow: hidden;
 }
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
+  height: var(--app-height, 100dvh);
 }
 
 @keyframes fade-in {

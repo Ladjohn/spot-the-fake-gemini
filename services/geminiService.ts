@@ -319,12 +319,18 @@ function estimateDifficultyScore(statement: string, category?: string) {
   return words.length * 0.55 + avgWordLength * 0.9 + longWordCount * 1.6 + numericRefs * 0.9 + punctuationRefs * 0.7 + titleCaseWords * 0.3 + categoryWeight;
 }
 
-function matchesDifficultyProfile(statement: string, difficulty: GameDifficulty, category?: string) {
+function matchesDifficultyProfile(statement: string, difficulty: GameDifficulty, category?: string, strict = true) {
   const score = estimateDifficultyScore(statement, category);
 
-  if (difficulty === 'Easy') return score <= 18;
-  if (difficulty === 'Medium') return score > 13 && score <= 25;
-  return score > 19;
+  if (difficulty === 'Easy') {
+    return strict ? score <= 18 : score <= 21;
+  }
+
+  if (difficulty === 'Medium') {
+    return strict ? score > 13 && score <= 25 : score > 10 && score <= 28;
+  }
+
+  return strict ? score > 19 : score > 16;
 }
 
 async function fetchSearchSnippetContext(statement: string): Promise<SearchSnippetContext | null> {
@@ -444,7 +450,12 @@ function buildTruthSummary(statement: string, isReal: boolean, context?: SearchS
   return `${truthLine} Quick snippet: ${compactSnippet}`;
 }
 
-async function mapTriviaToNewsItem(item: any, index: number, requestedDifficulty: GameDifficulty): Promise<NewsItem | null> {
+async function mapTriviaToNewsItem(
+  item: any,
+  index: number,
+  requestedDifficulty: GameDifficulty,
+  strictDifficulty = true
+): Promise<NewsItem | null> {
   const statement = decodeHtml(String(item.question || 'No statement')).replace(/\s+/g, ' ').trim();
   const isReal = item.correct_answer === 'True';
   const category = getGameCategory(item.category);
@@ -454,7 +465,7 @@ async function mapTriviaToNewsItem(item: any, index: number, requestedDifficulty
     return null;
   }
 
-  if (!matchesDifficultyProfile(statement, requestedDifficulty, category)) {
+  if (!matchesDifficultyProfile(statement, requestedDifficulty, category, strictDifficulty)) {
     return null;
   }
 
@@ -533,15 +544,21 @@ export function getEmergencyFallbackRound(count = DEFAULT_ROUND_SIZE, difficulty
   return getFallbackRound(count, difficulty);
 }
 
-async function fetchFreshPool(count: number, difficulty: GameDifficulty): Promise<NewsItem[]> {
+async function fetchFreshPool(count: number, difficulty: GameDifficulty, strictDifficulty = true): Promise<NewsItem[]> {
   const requestedCount = Math.min(50, Math.max(count + 12, count * 4));
   const triviaItems = await fetchTriviaQuestions(requestedCount, difficulty);
-  const mappedItems = await Promise.all(triviaItems.map((item: any, index: number) => mapTriviaToNewsItem(item, index, difficulty)));
+  const mappedItems = await Promise.all(
+    triviaItems.map((item: any, index: number) => mapTriviaToNewsItem(item, index, difficulty, strictDifficulty))
+  );
   return uniqueOnly(mappedItems, difficulty);
 }
 
 async function requestFreshRound(count: number, difficulty: GameDifficulty): Promise<NewsItem[]> {
-  const uniqueItems = await fetchFreshPool(count, difficulty);
+  let uniqueItems = await fetchFreshPool(count, difficulty, true);
+
+  if (uniqueItems.length < count) {
+    uniqueItems = await fetchFreshPool(count, difficulty, false);
+  }
 
   if (uniqueItems.length < count) {
     throw new Error('Not enough unique trivia statements');
@@ -569,7 +586,12 @@ async function fillQueue(difficulty: GameDifficulty, targetItems = QUEUE_TARGET_
 
   while (queue.length < targetItems) {
     const needed = Math.max(DEFAULT_ROUND_SIZE, targetItems - queue.length);
-    const freshItems = await fetchFreshPool(needed, difficulty);
+
+    let freshItems = await fetchFreshPool(needed, difficulty, true);
+    if (freshItems.length < needed) {
+      freshItems = await fetchFreshPool(needed, difficulty, false);
+    }
+
     const availableItems = freshItems.filter(item => !isQueuedHeadline(item.headline, difficulty));
 
     if (!availableItems.length) {

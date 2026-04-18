@@ -8,8 +8,9 @@ button {
 
 html {
   color-scheme: light dark;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 body {
@@ -17,13 +18,13 @@ body {
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   background: #f7d748;
   min-height: 100%;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #root {
   min-height: 100vh;
   min-height: 100dvh;
-  height: var(--app-height, 100dvh);
 }
 
 @keyframes fade-in {
@@ -96,7 +97,6 @@ body {
   animation: fade-in 0.3s ease;
 }
 
-/* Neo-Brutalist Styles */
 .neo-border {
   border: 3px solid #000;
 }

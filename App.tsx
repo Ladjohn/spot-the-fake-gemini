@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { generateQuizRound, getEmergencyFallbackRound, preloadRound, resolveWikiContext } from './services/geminiService';
+import { generateQuizRound, getEmergencyFallbackRound, preloadAllDifficulties, preloadRound } from './services/geminiService';
 import { playSound, startMusic, stopMusic } from './services/audioService';
 import { NewsItem, QuizState } from './types';
 import { GAME_CONFIG } from './constants';
@@ -400,7 +400,7 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    preloadRound('Medium');
+    preloadAllDifficulties();
     startMusic();
   }, []);
 
@@ -537,14 +537,15 @@ const App: React.FC = () => {
       score: 0,
       streak: 0,
       lives: GAME_CONFIG.MAX_LIVES,
-      status: 'PLAYING',
+      status: 'IDLE',
       difficulty,
     }));
 
     try {
-      // Remove the 8s timeout race that was causing fallback questions to load first.
-      // With lazy Wikipedia lookups, generateQuizRound is now much faster.
-      const items = await generateQuizRound(5, difficulty);
+      const items = await Promise.race([
+        generateQuizRound(5, difficulty),
+        new Promise<NewsItem[]>(res => setTimeout(() => res([]), 15000)),
+      ]);
       setQuizItems(items && items.length ? items : getEmergencyFallbackRound(5, difficulty));
       preloadRound(difficulty);
     } catch {
@@ -560,20 +561,12 @@ const App: React.FC = () => {
   };
 
   const handleVote = useCallback(
-    async (vote: 'REAL' | 'FAKE') => {
+    (vote: 'REAL' | 'FAKE') => {
       if (gameState.status !== 'PLAYING') return;
       navigator.vibrate?.(15);
 
-      let currentItem = quizItems[currentIndex];
+      const currentItem = quizItems[currentIndex];
       if (!currentItem) return;
-
-      // Resolve Wikipedia context before showing analysis
-      currentItem = await resolveWikiContext(currentItem);
-      setQuizItems(prev => {
-        const next = [...prev];
-        next[currentIndex] = currentItem;
-        return next;
-      });
 
       const isCorrect = vote === currentItem.type;
       const newLives = isCorrect ? gameState.lives : gameState.lives - 1;

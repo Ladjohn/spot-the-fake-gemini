@@ -246,7 +246,6 @@ const StartScreen: React.FC<{
             {d}
           </button>
         ))}
-
       </div>
     </div>
   );
@@ -394,6 +393,9 @@ const App: React.FC = () => {
   const [viewportHeight, setViewportHeight] = useState(() =>
     typeof window === 'undefined' ? 0 : window.innerHeight
   );
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === 'undefined' ? 1200 : window.innerWidth
+  );
 
   const [gameState, setGameState] = useState<QuizState>({
     currentRound: 1,
@@ -415,20 +417,21 @@ const App: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const updateViewportHeight = () => {
+    const updateViewport = () => {
       setViewportHeight(window.innerHeight);
+      setViewportWidth(window.innerWidth);
       document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     };
 
-    updateViewportHeight();
-    window.addEventListener('resize', updateViewportHeight);
-    window.addEventListener('orientationchange', updateViewportHeight);
-    window.visualViewport?.addEventListener('resize', updateViewportHeight);
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    window.addEventListener('orientationchange', updateViewport);
+    window.visualViewport?.addEventListener('resize', updateViewport);
 
     return () => {
-      window.removeEventListener('resize', updateViewportHeight);
-      window.removeEventListener('orientationchange', updateViewportHeight);
-      window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('resize', updateViewport);
+      window.removeEventListener('orientationchange', updateViewport);
+      window.visualViewport?.removeEventListener('resize', updateViewport);
     };
   }, []);
 
@@ -570,16 +573,30 @@ const App: React.FC = () => {
     }));
 
     try {
+      await Promise.race([
+        preloadRound(difficulty),
+        new Promise(resolve => setTimeout(resolve, 2500)),
+      ]);
+
       const items = await Promise.race([
         generateQuizRound(5, difficulty),
-        new Promise<NewsItem[]>(res => setTimeout(() => res([]), 15000)),
+        new Promise<NewsItem[]>((_, reject) =>
+          setTimeout(() => reject(new Error('Round request timed out')), 15000)
+        ),
       ]);
-      setQuizItems(items && items.length ? items : getEmergencyFallbackRound(5, difficulty));
-      preloadRound(difficulty);
+
+      if (items && items.length) {
+        setQuizItems(items);
+      } else {
+        setQuizItems(getEmergencyFallbackRound(5, difficulty));
+      }
+
+      void preloadRound(difficulty);
     } catch {
       setQuizItems(getEmergencyFallbackRound(5, difficulty));
-      preloadRound(difficulty);
+      void preloadRound(difficulty);
     }
+
     setCurrentIndex(0);
 
     setTimeout(() => {
@@ -627,11 +644,17 @@ const App: React.FC = () => {
 
     setLoading(true);
     try {
+      await Promise.race([
+        preloadRound(gameState.difficulty),
+        new Promise(resolve => setTimeout(resolve, 1500)),
+      ]);
+
       const nextItems = await generateQuizRound(5, gameState.difficulty);
       setQuizItems(nextItems && nextItems.length ? nextItems : getEmergencyFallbackRound(5, gameState.difficulty));
-      preloadRound(gameState.difficulty);
+      void preloadRound(gameState.difficulty);
     } catch {
       setQuizItems(getEmergencyFallbackRound(5, gameState.difficulty));
+      void preloadRound(gameState.difficulty);
     }
     setCurrentIndex(0);
     setGameState(prev => ({ ...prev, status: 'PLAYING' }));
@@ -691,19 +714,20 @@ const App: React.FC = () => {
   const borderColor = isDarkMode ? '#fff' : '#000';
   const mutedTextColor = isDarkMode ? '#aaa' : '#666';
   const appHeight = viewportHeight ? `${viewportHeight}px` : '100dvh';
+  const useLockedViewport = viewportWidth < 900;
 
   return (
     <div
       style={{
-        height: appHeight,
-        minHeight: appHeight,
-        maxHeight: appHeight,
+        minHeight: '100dvh',
+        height: useLockedViewport ? appHeight : 'auto',
+        maxHeight: useLockedViewport ? appHeight : 'none',
         background: bgColor,
         display: 'flex',
         flexDirection: 'column',
         color: textColor,
-        overflow: 'hidden',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        overflow: useLockedViewport ? 'hidden' : 'visible',
+        paddingBottom: useLockedViewport ? 'env(safe-area-inset-bottom, 0px)' : 0,
       }}
     >
       {gameState.status === 'ANALYSIS' && currentItem && userGuess && (
@@ -824,13 +848,13 @@ const App: React.FC = () => {
           maxWidth: 680,
           boxSizing: 'border-box',
           margin: '0 auto',
-          padding: '10px 16px 12px',
+          padding: useLockedViewport ? '10px 16px 12px' : '20px 16px 24px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: 0,
-          overflow: 'hidden',
+          overflow: useLockedViewport ? 'hidden' : 'visible',
         }}
       >
         {currentItem ? (
@@ -848,7 +872,7 @@ const App: React.FC = () => {
 
       <div
         style={{
-          padding: '12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px)',
+          padding: useLockedViewport ? '12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px)' : '16px',
           background: headerBg,
           borderTop: `3px solid ${borderColor}`,
           display: 'flex',

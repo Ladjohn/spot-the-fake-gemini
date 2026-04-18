@@ -158,11 +158,13 @@ const StartScreen: React.FC<{
       style={{
         minHeight: '100dvh',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
         background: pageBg,
         padding: '20px',
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+        paddingTop: 'max(20px, 4vh)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
+        overflowY: 'auto',
       }}
     >
       <div
@@ -173,6 +175,7 @@ const StartScreen: React.FC<{
           border: `4px solid ${panelBorder}`,
           boxShadow: `10px 10px 0 ${panelBorder}`,
           padding: 'clamp(20px, 5vw, 28px) clamp(18px, 5vw, 24px) 22px',
+          margin: '0 auto',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-start', marginBottom: 24, gap: 16 }}>

@@ -45,7 +45,7 @@ export default defineConfig(({ mode }) => {
               }
 
               const body = await readBody(req);
-              const { messages } = body;
+              const { messages, temperature = 0.7, max_tokens = 1200 } = body;
 
               const fetchWithTimeout = async (model: string) => {
                 const controller = new AbortController();
@@ -57,7 +57,7 @@ export default defineConfig(({ mode }) => {
                       Authorization: `Bearer ${OR_KEY}`,
                       'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ model, messages }),
+                    body: JSON.stringify({ model, messages, temperature, max_tokens }),
                     signal: controller.signal,
                   });
                   return r.json();
@@ -67,7 +67,7 @@ export default defineConfig(({ mode }) => {
               };
 
               try {
-                let data = await fetchWithTimeout('meta-llama/llama-3-8b-instruct');
+                let data = await fetchWithTimeout('mistralai/mistral-7b-instruct:free');
                 if (!data?.choices?.[0]?.message?.content) {
                   data = await fetchWithTimeout('mistralai/mistral-7b-instruct:free');
                 }
@@ -84,44 +84,17 @@ export default defineConfig(({ mode }) => {
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({
                 choices: [{ message: { content: JSON.stringify([
-                  { headline: 'Bananas are technically berries', type: 'REAL' },
-                  { headline: 'Penguins live in the Arctic', type: 'FAKE' },
-                ]) } }]
-              }));
-              return;
-            }
-
-            // ── /api/leaderboard ────────────────────────────────
-            if (url === '/api/leaderboard') {
-              if (req.method === 'GET') {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify(leaderboard.sort((a, b) => b.score - a.score).slice(0, 10)));
-                return;
-              }
-              if (req.method === 'POST') {
-                const body = await readBody(req);
-                const { name, score } = body;
-                if (name && typeof score === 'number') {
-                  leaderboard.push({ name, score });
-                  leaderboard = leaderboard.sort((a, b) => b.score - a.score).slice(0, 50);
-                }
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true }));
-                return;
-              }
-            }
-
-            next();
-          });
-        },
-      },
-    ],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
-    resolve: {
-      alias: { '@': path.resolve(__dirname, '.') },
-    },
-  };
-});
+                  {
+                    headline: 'The Eiffel Tower is located in Paris',
+                    type: 'REAL',
+                    category: 'Culture',
+                    difficulty: 'Easy',
+                    explanation: 'Correct answer: REAL. Fact check: The Eiffel Tower is a landmark in Paris, France.',
+                    imagePrompt: 'Eiffel Tower Paris landmark',
+                  },
+                  {
+                    headline: 'The Pacific Ocean is smaller than the Mediterranean Sea',
+                    type: 'FAKE',
+                    category: 'Science',
+                    difficulty: 'Easy',
+                    explanation: 'Correct answer: FAKE. Fact check: The Pacific Ocean is the largest ocean on Earth.',

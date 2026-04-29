@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { generateQuizRound, getEmergencyFallbackRound, preloadAllDifficulties, preloadRound } from './services/geminiService';
+import { generateQuizRound, getEmergencyFallbackRound, preloadRound } from './services/geminiService';
 import { playSound, startMusic, stopMusic } from './services/audioService';
 import { NewsItem, QuizState } from './types';
 import { GAME_CONFIG } from './constants';
@@ -13,7 +13,7 @@ const LOADING_LINES = [
   'Polishing fake facts until they sparkle...',
   'Asking a raccoon if this is real...',
   'Loading questions with maximum drama...',
-  'Interrogating the chaos engine for new traps...',
+  'Interrogating Wikipedia in a dark room...',
   'Teaching the truth to wear a disguise...',
   'Shuffling lies into the deck...',
   'Calling our unpaid fact goblins...',
@@ -158,13 +158,11 @@ const StartScreen: React.FC<{
       style={{
         minHeight: '100dvh',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'center',
         background: pageBg,
         padding: '20px',
-        paddingTop: 'max(20px, 4vh)',
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
-        overflowY: 'auto',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
       }}
     >
       <div
@@ -175,7 +173,6 @@ const StartScreen: React.FC<{
           border: `4px solid ${panelBorder}`,
           boxShadow: `10px 10px 0 ${panelBorder}`,
           padding: 'clamp(20px, 5vw, 28px) clamp(18px, 5vw, 24px) 22px',
-          margin: '0 auto',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'flex-start', marginBottom: 24, gap: 16 }}>
@@ -396,9 +393,6 @@ const App: React.FC = () => {
   const [viewportHeight, setViewportHeight] = useState(() =>
     typeof window === 'undefined' ? 0 : window.innerHeight
   );
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window === 'undefined' ? 1200 : window.innerWidth
-  );
 
   const [gameState, setGameState] = useState<QuizState>({
     currentRound: 1,
@@ -413,28 +407,26 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
-    preloadAllDifficulties();
     startMusic();
   }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const updateViewport = () => {
+    const updateViewportHeight = () => {
       setViewportHeight(window.innerHeight);
-      setViewportWidth(window.innerWidth);
       document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     };
 
-    updateViewport();
-    window.addEventListener('resize', updateViewport);
-    window.addEventListener('orientationchange', updateViewport);
-    window.visualViewport?.addEventListener('resize', updateViewport);
+    updateViewportHeight();
+    window.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('orientationchange', updateViewportHeight);
+    window.visualViewport?.addEventListener('resize', updateViewportHeight);
 
     return () => {
-      window.removeEventListener('resize', updateViewport);
-      window.removeEventListener('orientationchange', updateViewport);
-      window.visualViewport?.removeEventListener('resize', updateViewport);
+      window.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('orientationchange', updateViewportHeight);
+      window.visualViewport?.removeEventListener('resize', updateViewportHeight);
     };
   }, []);
 
@@ -578,14 +570,12 @@ const App: React.FC = () => {
     try {
       await Promise.race([
         preloadRound(difficulty),
-        new Promise(resolve => setTimeout(resolve, 2500)),
+        new Promise(resolve => setTimeout(resolve, 4500)),
       ]);
 
       const items = await Promise.race([
         generateQuizRound(5, difficulty),
-        new Promise<NewsItem[]>((_, reject) =>
-          setTimeout(() => reject(new Error('Round request timed out')), 15000)
-        ),
+        new Promise<NewsItem[]>(res => setTimeout(() => res([]), 15000)),
       ]);
 
       if (items && items.length) {
@@ -599,7 +589,6 @@ const App: React.FC = () => {
       setQuizItems(getEmergencyFallbackRound(5, difficulty));
       void preloadRound(difficulty);
     }
-
     setCurrentIndex(0);
 
     setTimeout(() => {
@@ -649,7 +638,7 @@ const App: React.FC = () => {
     try {
       await Promise.race([
         preloadRound(gameState.difficulty),
-        new Promise(resolve => setTimeout(resolve, 1500)),
+        new Promise(resolve => setTimeout(resolve, 2500)),
       ]);
 
       const nextItems = await generateQuizRound(5, gameState.difficulty);
@@ -717,20 +706,19 @@ const App: React.FC = () => {
   const borderColor = isDarkMode ? '#fff' : '#000';
   const mutedTextColor = isDarkMode ? '#aaa' : '#666';
   const appHeight = viewportHeight ? `${viewportHeight}px` : '100dvh';
-  const useLockedViewport = viewportWidth < 900;
 
   return (
     <div
       style={{
-        minHeight: '100dvh',
-        height: useLockedViewport ? appHeight : 'auto',
-        maxHeight: useLockedViewport ? appHeight : 'none',
+        height: appHeight,
+        minHeight: appHeight,
+        maxHeight: appHeight,
         background: bgColor,
         display: 'flex',
         flexDirection: 'column',
         color: textColor,
-        overflow: useLockedViewport ? 'hidden' : 'visible',
-        paddingBottom: useLockedViewport ? 'env(safe-area-inset-bottom, 0px)' : 0,
+        overflow: 'hidden',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
       {gameState.status === 'ANALYSIS' && currentItem && userGuess && (
@@ -851,13 +839,13 @@ const App: React.FC = () => {
           maxWidth: 680,
           boxSizing: 'border-box',
           margin: '0 auto',
-          padding: useLockedViewport ? '10px 16px 12px' : '20px 16px 24px',
+          padding: '10px 16px 12px',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           minHeight: 0,
-          overflow: useLockedViewport ? 'hidden' : 'visible',
+          overflow: 'hidden',
         }}
       >
         {currentItem ? (
@@ -875,7 +863,7 @@ const App: React.FC = () => {
 
       <div
         style={{
-          padding: useLockedViewport ? '12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px)' : '16px',
+          padding: '12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px)',
           background: headerBg,
           borderTop: `3px solid ${borderColor}`,
           display: 'flex',

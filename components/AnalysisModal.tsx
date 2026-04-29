@@ -34,6 +34,7 @@ function formatFactCheckText(item: NewsItem, fallbackReasoning?: string) {
 
   const cleanedText = rawText
     .replace(/^Quick snippet:\s*/i, '')
+    .replace(/^Fact check:\s*/i, '')
     .replace(/snippet was not ready in time/gi, 'supporting details were limited in this round')
     .trim();
 
@@ -44,8 +45,12 @@ function formatFactCheckText(item: NewsItem, fallbackReasoning?: string) {
   detailLine = detailLine
     .replace(/^Quick context from Wikipedia\s*\([^)]*\):\s*/i, '')
     .replace(/^Quick snippet:\s*/i, '')
+    .replace(/^Fact check:\s*/i, '')
     .replace(/^This statement was checked against the quiz database,\s*/i, '')
-    .replace(/^but extra encyclopedia context was not available before the round started\.?/i, 'This one was checked against the quiz source, but extra supporting context was limited in this round.')
+    .replace(
+      /^but extra encyclopedia context was not available before the round started\.?/i,
+      'This one was checked against the quiz source, but extra supporting context was limited in this round.'
+    )
     .trim();
 
   if (!detailLine) {
@@ -95,8 +100,10 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
   }
 
   const correct = userGuess === item.type;
+  const playerLabel = userGuess === 'TIMEOUT' ? 'TIME UP' : userGuess;
   const factCheck = formatFactCheckText(item, v.reasoning);
   const sourceLabel = item.source && item.source !== 'Fallback question bank' ? item.source : '';
+  const cardTitle = userGuess === 'TIMEOUT' ? 'TOO SLOW!' : correct ? 'NAILED IT!' : 'NOPE!';
 
   return (
     <div
@@ -137,7 +144,7 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
               letterSpacing: 1.2,
             }}
           >
-            {correct ? 'NAILED IT!' : 'NOPE!'}
+            {cardTitle}
           </h1>
           <p
             style={{
@@ -148,7 +155,7 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
               letterSpacing: 0.5,
             }}
           >
-            You: <b>{userGuess}</b> &nbsp; vs &nbsp; Truth: <b>{item.type}</b>
+            You: <b>{playerLabel}</b> &nbsp; vs &nbsp; Truth: <b>{item.type}</b>
           </p>
         </div>
 
@@ -228,6 +235,7 @@ const AnalysisModal: React.FC<Props> = ({ item, userGuess, verification, onNext 
                   fontSize: 12,
                   fontWeight: 700,
                   color: '#555',
+                  wordBreak: 'break-word',
                 }}
               >
                 Source: {sourceLabel}

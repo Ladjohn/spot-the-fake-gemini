@@ -349,4 +349,294 @@ async function fetchSearchSnippetContext(statement: string): Promise<SearchSnipp
   const bestResult = searchData?.query?.search?.[0];
   if (!bestResult?.title) return null;
 
-  const snippet = stripHtml(String(bestResult
+  const snippet = stripHtml(String(bestResult.snippet || ''));
+  if (!snippet) return null;
+
+  const pageId = bestResult.pageid;
+  let imageUrl: string | undefined;
+
+  if (pageId) {
+    try {
+      const pageUrl = new URL(WIKIPEDIA_PAGE_ENDPOINT);
+      pageUrl.searchParams.set('action', 'query');
+      pageUrl.searchParams.set('format', 'json');
+      pageUrl.searchParams.set('origin', '*');
+      pageUrl.searchParams.set('prop', 'pageimages');
+      pageUrl.searchParams.set('pageids', String(pageId));
+      pageUrl.searchParams.set('pithumbsize', '900');
+
+      const pageRes = await fetch(pageUrl.toString());
+      if (pageRes.ok) {
+        const pageData = await pageRes.json();
+        imageUrl = pageData?.query?.pages?.[String(pageId)]?.thumbnail?.source;
+      }
+    } catch {
+      imageUrl = undefined;
+    }
+  }
+
+  return {
+    title: String(bestResult.title),
+    snippet,
+    pageUrl: pageId ? `https://en.wikipedia.org/?curid=${pageId}` : undefined,
+    imageUrl,
+  };
+}
+
+async function getSearchSnippetContext(statement: string) {
+  return withTimeout(fetchSearchSnippetContext(statement), null);
+}
+
+function rememberHeadlines(items: NewsItem[]) {
+  for (const item of items) {
+    const normalized = normalizeHeadline(item.headline || (item as any).title || '');
+    if (!normalized || recentHeadlines.includes(normalized)) continue;
+    recentHeadlines.unshift(normalized);
+  }
+
+  if (recentHeadlines.length > MAX_RECENT_HEADLINES) {
+    recentHeadlines.length = MAX_RECENT_HEADLINES;
+  }
+
+  setSeenHeadlines(recentHeadlines);
+}
+
+function isRecentHeadline(headline: string) {
+  return recentHeadlines.includes(normalizeHeadline(headline));
+}
+
+function isQueuedHeadline(headline: string, difficulty: GameDifficulty) {
+  const normalized = normalizeHeadline(headline);
+  return onlineQueues[difficulty].some(item => normalizeHeadline(item.headline || (item as any).title || '') === normalized);
+}
+
+function primeImage(url?: string) {
+  if (typeof window === 'undefined' || !url || preloadedImageUrls.has(url)) return;
+
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = url;
+  preloadedImageUrls.add(url);
+}
+
+function primeImagesForItems(items: NewsItem[], count = PRELOAD_IMAGE_COUNT) {
+  items.slice(0, count).forEach(item => primeImage(item.imageUrl));
+}
+
+function getSafeImageUrl(context?: SearchSnippetContext | null, _imagePrompt?: string, category?: string) {
+  if (context?.imageUrl) {
+    return context.imageUrl;
+  }
+
+  return getCategoryImageUrl(category || 'Culture');
+}
+
+function getCategoryImageUrl(category: string) {
+  const imageIds: Record<string, string> = {
+    Science: 'photo-1532094349884-543bc11b234d',
+    Tech: 'photo-1518770660439-4636190af475',
+    Politics: 'photo-1529107386315-e1a2ed48a620',
+    Culture: 'photo-1529156069898-49953e39b3ac',
+    Health: 'photo-1505751172876-fa1923c5c528',
+  };
+
+  const imageId = imageIds[category] || imageIds.Culture;
+  return `https://images.unsplash.com/${imageId}?auto=format&fit=crop&w=900&q=78`;
+}
+
+function getGameCategory(triviaCategory?: string): NewsItem['category'] {
+  const category = (triviaCategory || '').toLowerCase();
+
+  if (category.includes('science') || category.includes('nature') || category.includes('math')) return 'Science';
+  if (category.includes('computer') || category.includes('gadget')) return 'Tech';
+  if (category.includes('politics') || category.includes('history') || category.includes('geography')) return 'Politics';
+  if (category.includes('animal') || category.includes('sport') || category.includes('film') || category.includes('music') || category.includes('book')) return 'Culture';
+  return 'Culture';
+}
+
+function getGameDifficulty(triviaDifficulty?: string): NewsItem['difficulty'] {
+  if (triviaDifficulty === 'easy') return 'Easy';
+  if (triviaDifficulty === 'hard') return 'Hard';
+  return 'Medium';
+}
+
+function buildTruthSummary(_statement: string, isReal: boolean, context?: SearchSnippetContext | null) {
+  const truthLine = `Correct answer: ${isReal ? 'REAL' : 'FAKE'}.`;
+
+  if (!context?.snippet) {
+    return `${truthLine} Fact check: This result matched the quiz source, but extra supporting detail was limited in this round.`;
+  }
+
+  const compactSnippet = context.snippet.length > 220
+    ? `${context.snippet.slice(0, 220).replace(/\s+\S*$/, '')}...`
+    : context.snippet;
+
+  return `${truthLine} Fact check: ${compactSnippet}`;
+}
+
+async function mapTriviaToNewsItem(item: any, index: number, requestedDifficulty: GameDifficulty): Promise<NewsItem | null> {
+  const statement = decodeHtml(String(item.question || 'No statement')).replace(/\s+/g, ' ').trim();
+  const isReal = item.correct_answer === 'True';
+  const category = getGameCategory(item.category);
+  const apiDifficulty = getGameDifficulty(item.difficulty);
+
+  if (apiDifficulty !== requestedDifficulty) {
+    return null;
+  }
+
+  const imagePrompt = `${statement} trivia quiz ${category}`;
+  const snippetContext = await getSearchSnippetContext(statement);
+  const summary = buildTruthSummary(statement, isReal, snippetContext);
+
+  return {
+    id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+    title: statement,
+    headline: statement,
+    type: isReal ? 'REAL' : 'FAKE',
+    imageUrl: getSafeImageUrl(snippetContext, imagePrompt, category),
+    summary,
+    explanation: summary,
+    category,
+    difficulty: requestedDifficulty,
+    source: snippetContext?.pageUrl || 'Open Trivia Database',
+    imagePrompt,
+  } as NewsItem;
+}
+
+function mapFallbackToNewsItem(item: Omit<NewsItem, 'id'>, index: number): NewsItem {
+  const headline = item.headline || (item as any).title || 'No statement';
+  const category = item.category || 'Culture';
+
+  return {
+    ...item,
+    id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+    title: headline,
+    headline,
+    imageUrl: getSafeImageUrl(null, item.imagePrompt || headline, category),
+    source: 'Fallback question bank',
+  } as NewsItem;
+}
+
+function uniqueOnly(items: Array<NewsItem | null>, difficulty?: GameDifficulty) {
+  const seenThisBatch = new Set<string>();
+
+  return items.filter((item): item is NewsItem => {
+    if (!item) return false;
+
+    const normalized = normalizeHeadline(item.headline);
+    if (!normalized || isRecentHeadline(item.headline) || seenThisBatch.has(normalized)) {
+      return false;
+    }
+
+    if (difficulty && isQueuedHeadline(item.headline, difficulty)) {
+      return false;
+    }
+
+    seenThisBatch.add(normalized);
+    return true;
+  });
+}
+
+function getFallbackRound(count: number, difficulty: GameDifficulty = 'Medium'): NewsItem[] {
+  const difficultyPool = FALLBACK_ITEMS.filter(item => item.difficulty === difficulty);
+  const sourcePool = difficultyPool.length ? difficultyPool : FALLBACK_ITEMS;
+  const shuffled = [...sourcePool].sort(() => Math.random() - 0.5);
+  const unique = shuffled
+    .filter(item => !isRecentHeadline(item.headline))
+    .slice(0, count)
+    .map((item, index) => mapFallbackToNewsItem(item, index));
+
+  const mapped = unique.length >= count
+    ? unique
+    : shuffled.slice(0, count).map((item, index) => mapFallbackToNewsItem(item, index));
+
+  rememberHeadlines(mapped);
+  primeImagesForItems(mapped, count);
+  return mapped;
+}
+
+export function getEmergencyFallbackRound(count = DEFAULT_ROUND_SIZE, difficulty: GameDifficulty = 'Medium') {
+  return getFallbackRound(count, difficulty);
+}
+
+async function fetchFreshPool(count: number, difficulty: GameDifficulty): Promise<NewsItem[]> {
+  const requestedCount = Math.min(50, Math.max(count + 12, count * 4));
+  const triviaItems = await fetchTriviaQuestions(requestedCount, difficulty);
+  const mappedItems = await Promise.all(triviaItems.map((item: any, index: number) => mapTriviaToNewsItem(item, index, difficulty)));
+  return uniqueOnly(mappedItems, difficulty);
+}
+
+async function requestFreshRound(count: number, difficulty: GameDifficulty): Promise<NewsItem[]> {
+  const uniqueItems = await fetchFreshPool(count, difficulty);
+
+  if (uniqueItems.length < count) {
+    throw new Error('Not enough unique trivia statements');
+  }
+
+  const selected = uniqueItems.slice(0, count);
+  rememberHeadlines(selected);
+  primeImagesForItems(selected, count);
+  return selected;
+}
+
+function takeQueuedRound(count: number, difficulty: GameDifficulty): NewsItem[] | null {
+  const queue = onlineQueues[difficulty];
+  if (queue.length < count) return null;
+
+  const selected = queue.splice(0, count);
+  rememberHeadlines(selected);
+  primeImagesForItems(selected, count);
+  primeImagesForItems(queue, PRELOAD_IMAGE_COUNT);
+  return selected;
+}
+
+async function fillQueue(difficulty: GameDifficulty, targetItems = QUEUE_TARGET_ITEMS) {
+  const queue = onlineQueues[difficulty];
+
+  while (queue.length < targetItems) {
+    const needed = Math.max(DEFAULT_ROUND_SIZE, targetItems - queue.length);
+    const freshItems = await fetchFreshPool(needed, difficulty);
+    const availableItems = freshItems.filter(item => !isQueuedHeadline(item.headline, difficulty));
+
+    if (!availableItems.length) {
+      break;
+    }
+
+    queue.push(...availableItems.slice(0, needed));
+  }
+
+  primeImagesForItems(queue, PRELOAD_IMAGE_COUNT);
+}
+
+export async function preloadRound(difficulty: GameDifficulty = 'Medium') {
+  if (!queueWarmups[difficulty]) {
+    queueWarmups[difficulty] = fillQueue(difficulty).catch(err => {
+      console.error(err);
+    }).finally(() => {
+      delete queueWarmups[difficulty];
+    });
+  }
+
+  await queueWarmups[difficulty];
+}
+
+export function preloadAllDifficulties() {
+  // Intentionally disabled to avoid rate-limit collisions before the player picks a difficulty.
+}
+
+export async function generateQuizRound(count = DEFAULT_ROUND_SIZE, difficulty: GameDifficulty = 'Medium'): Promise<NewsItem[]> {
+  try {
+    const queuedItems = takeQueuedRound(count, difficulty);
+    if (queuedItems) {
+      void preloadRound(difficulty);
+      return queuedItems;
+    }
+
+    const freshItems = await requestFreshRound(count, difficulty);
+    void preloadRound(difficulty);
+    return freshItems;
+  } catch (err) {
+    console.error(err);
+    return getFallbackRound(count, difficulty);
+  }
+}
